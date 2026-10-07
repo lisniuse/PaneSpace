@@ -94,4 +94,16 @@ rtk proxy npm run build --prefix tools/Branding
 - 只提交与任务有关的源码、文档和品牌资源，遵守 `.gitignore`。
 - 不提交 `dist`、`bin`、`obj`、`node_modules`、IDE 本地状态、日志或本地环境配置。
 - 提交前检查差异与工作区，保留用户已有修改。
-- 在用户已授权的范围内提交、推送；不要强制推送或改写已发布的提交历史。
+- **每完成一个任务，在必要检查通过后自动提交并推送到 GitHub，无需再次询问用户。**
+  提交仅包含本任务的修改；没有文件变更时不创建空提交。推送失败时明确报告原因，不宣称已同步。
+- 提交信息使用 **Conventional Commits（CC）**：`<type>(<scope>): <description>`，scope 可省略。
+  标题默认英语，简洁描述本次结果；常用 type 为 `feat`、`fix`、`docs`、`refactor`、`perf`、
+  `test`、`build`、`ci`、`chore`、`revert`。不兼容变更使用 `!` 或 `BREAKING CHANGE:` 正文说明。
+- 普通任务使用常规推送，不改写已发布历史。用户明确要求修改历史提交时，可以重写；
+  先备份、核对远端分支，再使用带明确预期远端提交的 `--force-with-lease`，避免覆盖他人更新。
+
+```text
+feat(branding): add SVG icon and logo
+fix(windows): recover off-screen windows on exit
+docs(agents): document automatic task commits
+```
