@@ -12,8 +12,8 @@ using WinForms = System.Windows.Forms;
 namespace PaneSpace.Application;
 
 /// <summary>
-/// Infinite canvas: windows are MOVED, not re-rendered.
-/// One layered window renders EVERYTHING (grid + button bar + interactive minimap)
+/// Native windows are moved at 100%; other scales use live DWM window previews.
+/// One layered window renders the grid + button bar + interactive minimap
 /// via UpdateLayeredWindow per-pixel alpha — no z-order fights, and alpha=0 areas
 /// are naturally click-through so no WS_EX_TRANSPARENT toggling either.
 /// On the bare desktop, hold Ctrl: drag to slide all windows, hover/click the
@@ -21,7 +21,6 @@ namespace PaneSpace.Application;
 /// </summary>
 public sealed partial class CanvasController : IDisposable
 {
-    private const int PAN_SCREENS = 1;                       // canvas = 3x3 screens
     private const int MAP_W = 224, MAP_MARGIN = 14, TITLE_H = 26;
     private const int BAR_H = 42, BAR_PAD = 10, BAR_ITEM_PAD = 28;
     private const byte GRID_A = 46, SOLID_A = 235;
@@ -36,6 +35,7 @@ public sealed partial class CanvasController : IDisposable
     private IntPtr _layer = IntPtr.Zero;
     private Win32.WndProcDelegate? _layerProc;
     private WinEvent? _events;
+    private CanvasWheelHook? _wheelHook;
     private WinForms.NotifyIcon? _tray;
     private Icon? _trayIcon;
     private WinForms.Timer? _pollTimer;
@@ -52,8 +52,8 @@ public sealed partial class CanvasController : IDisposable
     // GDI+ draws into a premultiplied bitmap; the memory DC presents the same pixels.
     private IntPtr _screenDc, _memDc, _hbm, _oldBmp;
     private Bitmap? _frame;
-    private Bitmap? _gridBase;      // cached static grid
     private float _dragAccX, _dragAccY;
+    private int _dragTravel;
     private IntPtr _curHand, _curArrow;
     private readonly List<(Rectangle Rect, IntPtr Hwnd)> _mapHits = new();
     private IntPtr _hoverHwnd;
@@ -86,7 +86,7 @@ public sealed partial class CanvasController : IDisposable
         {
             Icon = _trayIcon,
             Visible = true,
-            Text = "PaneSpace 画布（桌面激活时按 Ctrl 拖拽平移，Esc 归位）",
+            Text = "PaneSpace（桌面按 Ctrl：拖动平移、滚轮缩放，Esc 复位）",
         };
         var menu = new WinForms.ContextMenuStrip();
         var home = new WinForms.ToolStripMenuItem("画布归位 (Esc)");
@@ -106,12 +106,13 @@ public sealed partial class CanvasController : IDisposable
         _saveTimer?.Dispose();
         _pollTimer?.Dispose();
         _events?.Dispose();
+        _wheelHook?.Dispose();
+        _preview?.Dispose();
         // Keep the saved canvas layout, but leave the live windows reachable after exit.
         WindowRecovery.ReturnToScreens(_logical.Keys.ToArray());
         if (_layer != IntPtr.Zero) Win32.DestroyWindow(_layer);
         _frame?.Dispose();                           // release wrapper before its native pixels
         if (_memDc != IntPtr.Zero) { Win32.SelectObject(_memDc, _oldBmp); Win32.DeleteObject(_hbm); Win32.DeleteDC(_memDc); Win32.ReleaseDC(IntPtr.Zero, _screenDc); }
-        _gridBase?.Dispose();
         _tray?.Dispose();
         _trayIcon?.Dispose();
     }

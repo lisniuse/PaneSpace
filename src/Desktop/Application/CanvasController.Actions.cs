@@ -17,6 +17,15 @@ public sealed partial class CanvasController
 
     private void ApplyPan()
     {
+        if (PreviewActive)
+        {
+            var camera = Viewport.Clamp();
+            _panX = camera.PanX; _panY = camera.PanY;
+            RefreshPreview();
+            ComposeFull();
+            ScheduleSave();
+            return;
+        }
         IntPtr info = Win32.BeginDeferWindowPos(Math.Max(_logical.Count, 1));
         foreach (var (hwnd, logical) in _logical)
         {
@@ -29,14 +38,14 @@ public sealed partial class CanvasController
         Win32.EndDeferWindowPos(info);
         foreach (var d in _dead) _logical.Remove(d);
         _dead.Clear();
-        if (_canvasMode) ComposeMapOnly();          // only the minimap needs redrawing
+        if (_canvasMode) ComposeFull();
         ScheduleSave();
     }
 
     private void PanBy(float dx, float dy)
     {
-        _panX = Math.Clamp(_panX + dx, -_w * (float)PAN_SCREENS, _w * (float)PAN_SCREENS);
-        _panY = Math.Clamp(_panY + dy, -_h * (float)PAN_SCREENS, _h * (float)PAN_SCREENS);
+        var camera = Viewport.Drag(dx, dy);
+        _panX = camera.PanX; _panY = camera.PanY;
         ApplyPan();
     }
 
@@ -49,8 +58,10 @@ public sealed partial class CanvasController
 
     private void ResetPan()
     {
+        ReturnToNative();
         _panX = _panY = 0;
         ApplyPan();
+        if (_canvasMode) ComposeFull();
     }
 
     /// <summary>Shortest-column masonry across the 3x3 canvas, preserving window sizes.</summary>
@@ -113,6 +124,7 @@ public sealed partial class CanvasController
     {
         MapDbg($"FOCUS hwnd={hwnd.ToInt64():X} tracked={_logical.ContainsKey(hwnd)} alive={Win32.IsWindow(hwnd)}");
         if (!_logical.ContainsKey(hwnd) || !Win32.IsWindow(hwnd)) return;
+        if (PreviewActive) SetCanvasMode(false);
         if (Win32.IsIconic(hwnd)) Win32.ShowWindow(hwnd, 9);           // SW_RESTORE
         CentreWindow(hwnd);
         // and bring the window to the front, so clicking an already-centred window

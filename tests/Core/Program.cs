@@ -1,5 +1,6 @@
 using System.Drawing;
 using PaneSpace.Core.Layout;
+using PaneSpace.Core.Viewport;
 
 int passed = 0;
 Run("Short windows fill below the shortest column", () =>
@@ -65,7 +66,51 @@ Run("Random mixed-size layouts keep all windows in bounds and separated", () =>
     Assert(accepted > 0 && rejected > 0, "Random cases must exercise both successful and insufficient-space layouts.");
     Console.WriteLine($"  1000 cases: {accepted} accepted, {rejected} safely rejected");
 });
-Console.WriteLine($"All {passed} layout checks passed.");
+Run("Zoom keeps the cursor's world point fixed and transforms invert", () =>
+{
+    var random = new Random(42);
+    for (int i = 0; i < 1000; i++)
+    {
+        var camera = new CanvasViewport(1920, 1080, 0, 0);
+        var cursor = new PointF(random.Next(1920), random.Next(1080));
+        var world = camera.ToWorld(cursor);
+        var zoomed = camera.ZoomAt(cursor, 1.15f);
+        Near(zoomed.ToScreen(world), cursor);
+        Near(zoomed.ToWorld(zoomed.ToScreen(world)), world);
+        Near(zoomed.ZoomAt(cursor, 1).ToScreen(world), cursor);
+    }
+});
+Run("Scaled drags move content by the actual mouse distance", () =>
+{
+    foreach (float scale in new[] { .5f, 1f, 2f })
+    {
+        var camera = new CanvasViewport(1920, 1080, 0, 0, scale);
+        var before = camera.ToScreen(new PointF(420, 240));
+        var after = camera.Drag(72, -48).ToScreen(new PointF(420, 240));
+        Near(after, new PointF(before.X + 72, before.Y - 48));
+    }
+});
+Run("Zoom and camera limits keep the 3x3 canvas reachable", () =>
+{
+    var camera = new CanvasViewport(1920, 1080, 0, 0);
+    Assert(camera.Wheel(PointF.Empty, -20000).Scale == CanvasViewport.MinScale, "Minimum zoom limit.");
+    Assert(camera.Wheel(PointF.Empty, 20000).Scale == CanvasViewport.MaxScale, "Maximum zoom limit.");
+    var overview = camera.ZoomAt(PointF.Empty, .25f).Drag(10000, -10000);
+    Assert(overview.PanX == 0 && overview.PanY == 0, "Full overview should stay centered.");
+    Assert(overview.VisibleWorld.Contains(new RectangleF(-1920, -1080, 5760, 3240)), "Overview includes the entire canvas.");
+    foreach (float scale in new[] { .5f, 1f, 2f })
+    {
+        var edge = (camera with { Scale = scale }).Drag(10000, -10000).VisibleWorld;
+        Assert(edge.Left >= -1920 && edge.Right <= 3840 && edge.Top >= -1080 && edge.Bottom <= 2160,
+            "Visible viewport must stay within the canvas when it fits.");
+    }
+    Assert(camera.Wheel(new PointF(960, 540), 60).Scale > 1 &&
+        camera.Wheel(new PointF(960, 540), 60).Scale < 1.15f, "Partial wheel deltas must be supported.");
+});
+Console.WriteLine($"All {passed} core checks passed.");
+
+void Near(PointF actual, PointF expected) => Assert(Math.Abs(actual.X - expected.X) < .002f &&
+    Math.Abs(actual.Y - expected.Y) < .002f, $"Expected {expected}, got {actual}.");
 
 Point[] Arrange(Size[] sizes, Rectangle bounds, int gap)
 {

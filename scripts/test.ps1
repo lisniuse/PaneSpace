@@ -14,7 +14,7 @@ try {
     & dotnet run --project (Join-Path $projectRoot 'tests/Core/PaneSpace.Core.Tests.csproj') -c $Configuration --no-build
     if ($LASTEXITCODE -ne 0) { throw "Core regression tests failed (exit $LASTEXITCODE)." }
     & dotnet run --project (Join-Path $projectRoot 'tests/Desktop/PaneSpace.Desktop.Tests.csproj') -c $Configuration --no-build
-    if ($LASTEXITCODE -ne 0) { throw "Window recovery checks failed (exit $LASTEXITCODE)." }
+    if ($LASTEXITCODE -ne 0) { throw "Native desktop checks failed (exit $LASTEXITCODE)." }
 }
 finally {
     Pop-Location

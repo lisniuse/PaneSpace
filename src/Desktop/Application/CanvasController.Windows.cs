@@ -58,11 +58,13 @@ public sealed partial class CanvasController
         // Keep existing canvas coordinates until the window is restored.
         if (_logical.ContainsKey(hwnd) || Win32.IsIconic(hwnd) || !WindowFilter.IsManaged(hwnd, _selfPid)) return;
         var p = RealPos(hwnd);
-        _logical[hwnd] = (p.X - (int)_panX, p.Y - (int)_panY);
+        _logical[hwnd] = (p.X - (int)(PreviewActive ? _nativePanX : _panX),
+            p.Y - (int)(PreviewActive ? _nativePanY : _panY));
     }
 
     private void ResyncLogical()
     {
+        if (PreviewActive) return; // native windows stay stationary while the preview camera moves
         foreach (var hwnd in _logical.Keys.ToArray())
         {
             if (!Win32.IsWindow(hwnd) || Win32.IsIconic(hwnd)) continue;

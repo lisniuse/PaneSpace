@@ -8,7 +8,7 @@ PaneSpace 分成一个纯逻辑库、一个 Windows 桌面应用和一个轻量�
 
 | 项目 | 职责 | 依赖 |
 | --- | --- | --- |
-| `src/Core/PaneSpace.Core.csproj` | 布局算法、可序列化的会话模型 | .NET 基础库；无 HWND、WinForms 和文件读写 |
+| `src/Core/PaneSpace.Core.csproj` | 布局算法、视口变换、可序列化的会话模型 | .NET 基础库；无 HWND、WinForms 和文件读写 |
 | `src/Desktop/PaneSpace.csproj` | Windows 窗口操作、输入、绘制、托盘和存档 | Core、WinForms、Win32 |
 | `tests/Core/PaneSpace.Core.Tests.csproj` | 测试实际编译的布局算法 | Core |
 | `tests/Desktop/PaneSpace.Desktop.Tests.csproj` | 用独立原生窗口验证退出收回行为 | Desktop、Win32 |
@@ -27,6 +27,7 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 | `CanvasController.Actions.cs` | 平移、瀑布流、归中、小地图聚焦 |
 | `CanvasController.Taskbar.cs` | 任务栏点击识别与恢复后的延迟定位 |
 | `CanvasController.Input.cs` | Ctrl/Esc 轮询、鼠标消息、命中检测 |
+| `CanvasController.Zoom.cs` | 缩放镜头、实时预览协调及回到原生视图 |
 | `CanvasController.Rendering.cs` | 网格、按钮、小地图、共享 DIB 缓冲与呈现 |
 | `CanvasController.Session.cs` | 会话组装、窗口身份匹配和恢复 |
 
@@ -50,10 +51,17 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 多个水平区段；优先放到最低可用位置，高度相同则从左向右。尺寸和间距保持不变。
 计算成功才提交所有坐标，失败不会提交部分排列，也不会把窗口排出可达画布。
 
-## 后续功能的放置
+## 缩放视图
 
-视口坐标、缩放比例等纯计算可以放进 Core；DWM 缩略图或窗口捕获接口放进
-`Platform/Windows`；缩放视图的合成放进 `Rendering`。新增渲染方案时应抽出拥有明确
-生命周期的渲染组件，避免继续把资源和输入处理堆进主控制器。
+`Core/Viewport/CanvasViewport.cs` 计算缩放、鼠标锚点、逆变换、拖动和视口边界。
+镜头偏移使用世界单位，屏幕坐标为 `(world + pan - screenCenter) * scale + screenCenter`。
+100% 与既有 `real = logical + pan` 一致；视口小于画布时限制在画布内，大于画布时居中。
 
-当前这次调整建立了目录、项目依赖和文件职责边界，尚未引入缩放渲染或新的并发机制。
+`Rendering/WindowPreview.cs` 持有不激活的普通顶层窗口及 DWM 缩略图；平台声明在
+`Platform/Windows/Dwm.cs`。预览宿主在分层输入窗口下方，按真实窗口层级由下至上登记。
+超出视口的预览同步裁剪源与目标矩形，保持内容比例。窗口列表每 100ms 检查一次，
+内容由 DWM 实时更新；拖动及滚轮立即刷新镜头，不调整原窗口尺寸。
+
+缩放时原窗口不移动；松开 Ctrl 或点击预览，按当前视口中心恢复 100% 并应用真实窗口
+位置，然后隐藏预览、释放缩略图。比例不写入会话，既有 JSON 格式保持兼容。
+测试只向控制器注入独立窗口，不执行真实窗口枚举或读写用户存档。

@@ -46,6 +46,7 @@ public sealed partial class CanvasController
                 PanBy(dx, dy);
             }
             ProcessTaskbarFocus(Win32.GetForegroundWindow(), Environment.TickCount64);
+            if (PreviewActive && Environment.TickCount64 - _previewRefreshed >= 100) RefreshPreview();
         };
         _pollTimer.Start();
     }
@@ -53,9 +54,18 @@ public sealed partial class CanvasController
     private void SetCanvasMode(bool on)
     {
         if (on == _canvasMode) return;
+        if (!on) ReturnToNative();
         _canvasMode = on;
-        if (on) ResyncLogical();
-        else { _hoverHwnd = IntPtr.Zero; _dragging = false; _dragAccX = _dragAccY = 0; ScheduleSave(); }
+        if (on)
+        {
+            ResyncLogical();
+            _wheelHook = new CanvasWheelHook(_layer);
+        }
+        else
+        {
+            _wheelHook?.Dispose(); _wheelHook = null;
+            _hoverHwnd = IntPtr.Zero; _dragging = false; _dragAccX = _dragAccY = 0; ScheduleSave();
+        }
         ComposeFull();
     }
 
@@ -72,7 +82,8 @@ public sealed partial class CanvasController
                 if (_canvasMode)
                 {
                     var p = new Point(gp.X, gp.Y);
-                    c = (MapRect.Contains(p) && MapHit(p) != IntPtr.Zero) || InBar(p)
+                    c = (MapRect.Contains(p) && MapHit(p) != IntPtr.Zero) || InBar(p) ||
+                        (PreviewActive && (_preview?.Hit(p) ?? IntPtr.Zero) != IntPtr.Zero)
                         ? _curHand : GrabCursor.Handle;
                 }
                 Win32.SetCursor(c != IntPtr.Zero ? c : _curArrow);
@@ -82,6 +93,8 @@ public sealed partial class CanvasController
             {
                 var p = ScreenPt(lParam);
                 _downPos = p;
+                _dragTravel = 0;
+                _downHwnd = IntPtr.Zero;
                 if (_canvasMode)
                 {
                     for (int i = 0; i < Buttons.Length; i++)
@@ -89,6 +102,7 @@ public sealed partial class CanvasController
                     _downHwnd = MapHit(p);
                     MapDbg($"DOWN p={p.X},{p.Y} down={_downHwnd.ToInt64():X} hits={_mapHits.Count} map={MapRect}");
                     if (_downHwnd != IntPtr.Zero) return IntPtr.Zero;   // map click, not drag
+                    if (PreviewActive) _downHwnd = _preview?.Hit(p) ?? IntPtr.Zero;
                 }
                 _dragging = true;
                 _lastPos = p;
@@ -100,6 +114,7 @@ public sealed partial class CanvasController
                 var p = ScreenPt(lParam);
                 if (_dragging)
                 {
+                    _dragTravel += Math.Abs(p.X - _lastPos.X) + Math.Abs(p.Y - _lastPos.Y);
                     _dragAccX += p.X - _lastPos.X;
                     _dragAccY += p.Y - _lastPos.Y;
                     _lastPos = p;
@@ -126,6 +141,10 @@ public sealed partial class CanvasController
                         _dragAccX = _dragAccY = 0;
                         PanBy(dx, dy);
                     }
+                    if (PreviewActive && _downHwnd != IntPtr.Zero && _dragTravel <= 8 &&
+                        Math.Abs(p.X - _downPos.X) <= 5 && Math.Abs(p.Y - _downPos.Y) <= 5)
+                        FocusWindowOnMap(_downHwnd);
+                    _downHwnd = IntPtr.Zero;
                     // Ctrl may have been released while the mouse was still down
                     if ((Win32.GetAsyncKeyState(Win32.VK_CONTROL) & 0x8000) == 0) SetCanvasMode(false);
                     return IntPtr.Zero;
@@ -149,7 +168,7 @@ public sealed partial class CanvasController
             case Win32.WM_MOUSEWHEEL:
             {
                 short d = unchecked((short)((long)wParam >> 16));
-                if (_canvasMode) PanBy(0, d > 0 ? -120 : 120);
+                if (_canvasMode) ZoomAt(ScreenPt(lParam), d);
                 return IntPtr.Zero;
             }
         }

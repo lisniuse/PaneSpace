@@ -50,7 +50,6 @@ public sealed partial class CanvasController
         CreateDrawingSurface();
         _curHand = Win32.LoadCursorW(IntPtr.Zero, (IntPtr)32649);
         _curArrow = Win32.LoadCursorW(IntPtr.Zero, (IntPtr)32512);
-        BuildGridBase();
         ComposeFull();                               // fully transparent start
         // window stays visible permanently; invisibility = all-zero alpha frame
         Win32.ShowWindow(_layer, 5 /*SW_SHOW*/);
@@ -81,17 +80,6 @@ public sealed partial class CanvasController
         _frame = new Bitmap(_w, _h, checked(_w * 4), PixelFormat.Format32bppPArgb, pixels);
     }
 
-    private void BuildGridBase()
-    {
-        _gridBase?.Dispose();
-        _gridBase = new Bitmap(_w, _h, PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(_gridBase);
-        g.Clear(Color.FromArgb(GRID_A, 20, 96, 180));
-        using var pen = new Pen(Color.FromArgb(70, 255, 255, 255), 1);
-        for (int x = 0; x <= _w; x += 48) g.DrawLine(pen, x, 0, x, _h);
-        for (int y = 0; y <= _h; y += 48) g.DrawLine(pen, 0, y, _w, y);
-    }
-
     private void ComposeFull()
     {
         using (var g = Graphics.FromImage(_frame!))
@@ -100,7 +88,7 @@ public sealed partial class CanvasController
             g.Clear(Color.Transparent);              // alpha 0 = click-through
             if (_canvasMode)
             {
-                g.DrawImageUnscaled(_gridBase!, 0, 0);
+                DrawGrid(g);
                 DrawButtons(g);
                 DrawMap(g);
             }
@@ -111,6 +99,7 @@ public sealed partial class CanvasController
     /// <summary>Repaint only the minimap during dragging, then present the full frame.</summary>
     private void ComposeMapOnly()
     {
+        if (PreviewActive) { ComposeFull(); return; }
         var mr = MapRect;
         using (var g = Graphics.FromImage(_frame!))
         {
@@ -157,6 +146,23 @@ public sealed partial class CanvasController
         }
     }
 
+    private void DrawGrid(Graphics g)
+    {
+        g.Clear(Color.FromArgb(GRID_A, 20, 96, 180));
+        using var pen = new Pen(Color.FromArgb(70, 255, 255, 255), 1);
+        float step = 48 * _zoom;
+        var origin = Viewport.ToScreen(PointF.Empty);
+        float startX = (origin.X % step + step) % step, startY = (origin.Y % step + step) % step;
+        for (float x = startX; x < _w; x += step) g.DrawLine(pen, x, 0, x, _h);
+        for (float y = startY; y < _h; y += step) g.DrawLine(pen, 0, y, _w, y);
+        if (PreviewActive)
+        {
+            using var f = new Font("Microsoft YaHei UI", 10);
+            g.DrawString($"{_zoom:P0} · 滚轮缩放 · 拖动平移 · 点击窗口打开 · 松开 Ctrl 回到 100%",
+                f, Brushes.White, 18, 18);
+        }
+    }
+
     private void DrawMap(Graphics g)
     {
         var mr = MapRect;
@@ -181,23 +187,28 @@ public sealed partial class CanvasController
             g.FillRectangle(hwnd == _hoverHwnd ? hlBrush : winBrush, rc);
             _mapHits.Add((rc, hwnd));
         }
+        var viewport = Viewport.VisibleWorld;
+        var previousClip = g.Save();
+        g.SetClip(new Rectangle(mr.X, mr.Y + TITLE_H, mr.Width, mr.Height - TITLE_H));
         g.DrawRectangle(vpPen,
-            mr.X + (int)((-_panX + _w) * s), mr.Y + TITLE_H + (int)((-_panY + _h) * s),
-            (int)(_w * s), (int)(_h * s));
+            mr.X + (viewport.X + _w) * s, mr.Y + TITLE_H + (viewport.Y + _h) * s,
+            viewport.Width * s, viewport.Height * s);
+        g.Restore(previousClip);
         g.DrawRectangle(border, mr.X, mr.Y, mr.Width - 1, mr.Height - 1);
 
+        string ttl = $"{_zoom:P0} · 滚轮缩放";
         if (_hoverHwnd != IntPtr.Zero && Win32.IsWindow(_hoverHwnd))
         {
             _title.Clear();
             Win32.GetWindowTextW(_hoverHwnd, _title, 200);
-            string ttl = _title.ToString();
+            ttl = _title.ToString();
             if (ttl.Length == 0) ttl = "(无标题)";
             if (ttl.Length > 24) ttl = ttl[..24] + "…";
-            using var tb = new SolidBrush(Color.FromArgb(240, 235, 240, 248));
-            using var tf = new Font("Microsoft YaHei UI", 8.5f);
-            using var titleBg = new SolidBrush(Color.FromArgb(235, 30, 40, 54));
-            g.FillRectangle(titleBg, mr.X, mr.Y, mr.Width, TITLE_H);
-            g.DrawString(ttl, tf, tb, mr.X + 6, mr.Y + 5);
         }
+        using var tb = new SolidBrush(Color.FromArgb(240, 235, 240, 248));
+        using var tf = new Font("Microsoft YaHei UI", 8.5f);
+        using var titleBg = new SolidBrush(Color.FromArgb(235, 30, 40, 54));
+        g.FillRectangle(titleBg, mr.X, mr.Y, mr.Width, TITLE_H);
+        g.DrawString(ttl, tf, tb, mr.X + 6, mr.Y + 5);
     }
 }
