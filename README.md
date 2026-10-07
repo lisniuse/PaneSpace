@@ -35,8 +35,8 @@ click a preview to return to 100% and interact with the original application.
   and the camera follows it, within the canvas bounds.
 - **Masonry arrangement:** pack mixed-size windows into the lowest available space,
   allowing wide windows to span columns without resizing them.
-- **Screen tiling:** resize each window to one primary-screen cell, reserving 28px
-  at the top and sides and 80px at the bottom for the taskbar,
+- **Screen tiling:** resize each window to one primary-screen cell with four configurable
+  margins; defaults reserve 28px at the top and sides and 80px at the bottom for the taskbar,
   then arrange the cells in three columns. Infinite mode adds rows beyond nine windows.
 - **Layout persistence:** remember the camera, window positions, icon positions,
   and settings across sessions.
@@ -78,11 +78,11 @@ publishing entry point. Build output is excluded from this repository.
 | Click a minimap window block | Center and activate that window |
 | Activate a window from the taskbar | Follow the restored or activated window |
 | 自动排列(全画布) | Arrange visible, non-minimized windows inside the 3 × 3 area, in either mode |
-| 整屏平铺 | Fit each window in a screen cell: 28px top/side margins, 80px bottom reservation |
+| 整屏平铺 | Fit each window in a screen cell using the saved top, right, bottom and left margins |
 | Drag a canvas desktop icon | Reposition that icon and save its world position |
 | Double-click a canvas desktop icon | Open the file, folder or shortcut |
 | Click a purple minimap icon block | Center the camera on that desktop icon |
-| Tray → 设置… | Configure infinite canvas, desktop icons and edge panning |
+| Tray → 设置… | Configure canvas options and the four screen-tiling margins |
 | Pointer near a working-area edge, with edge panning enabled | Scroll the camera after a short dwell, without Ctrl |
 | 全部搬回中心屏 | Move the window group back to the center screen |
 | 复位 button / Tray → 画布归位 | Reset to 100% and zero camera offset |
@@ -93,15 +93,16 @@ fit all eligible windows, PaneSpace keeps the existing layout and shows a notice
 Esc does not reset the camera or move windows; use the reset button or tray menu.
 
 **整屏平铺 — Screen tiling** returns to 100% and centers the first cell in the
-viewport. Each cell reserves 28px at the top and sides and 80px below for the
-taskbar. Adjacent windows have a 56px horizontal gap and a 108px vertical gap.
+viewport. By default each cell reserves 28px at the top and sides and 80px below
+for the taskbar; all four values can be changed in settings. Adjacent windows have
+a horizontal gap of left + right and a vertical gap of top + bottom (56px and 108px by default).
 Finite mode supports up to nine windows and preserves the entire layout
 if that limit is exceeded; infinite mode continues in additional rows. Maximized
 windows are restored before resizing; hidden and minimized windows are excluded.
 Applications with size constraints keep their accepted size, centered in the cell's available area,
 and a tray notice reports constrained or unsuccessful adjustments. Desktop icon
 positions are unchanged. The masonry button retains its original behavior.
-Following a tiled window from the minimap or taskbar keeps this reservation;
+Following a tiled window from the minimap or taskbar keeps the margins used for that layout;
 manually resizing it returns to ordinary window centering.
 
 ## Settings
@@ -120,7 +121,14 @@ Right-click the tray icon, choose **设置…**, and save any combination of ind
   mouse buttons, using menus or the taskbar, and while settings are open. It works
   in native and zoomed views and respects the finite canvas boundary.
 
-All options start disabled; older settings leave edge panning disabled. Turning desktop icons off or exiting restores the
+**整屏平铺边距（px） — Screen-tiling margins:** independently set **top, right,
+bottom and left**, defaulting to **28, 28, 80 and 28px**. Values may be zero;
+left + right must be less than the primary-screen width and top + bottom less
+than its height. Save, then click **整屏平铺** to use the new values. Changing these
+settings preserves the existing window layout until you tile again. All four values
+are saved; older settings use the defaults.
+
+All three switches start disabled; older settings leave edge panning disabled. Turning desktop icons off or exiting restores the
 original Windows desktop visibility and layout. A recovery companion also restores
 the native view after an abrupt app exit. Desktop files are not moved or renamed.
 
@@ -142,6 +150,8 @@ Additional checks cover unbounded cameras, dynamic overview bounds, desktop icon
 input and rendering, settings controls, atomic persistence, and legacy layout data.
 Screen-tiling checks cover margins, finite overflow, additional infinite rows,
 maximized windows, application size constraints and toolbar input during zoom.
+They also cover asymmetric and zero margins, invalid totals, settings persistence
+and following windows with custom insets.
 Edge-panning checks cover directions, dwell timing, pauses, diagonal speed, zoom
 and finite/infinite bounds. CI also publishes and boots the real production EXE.
 

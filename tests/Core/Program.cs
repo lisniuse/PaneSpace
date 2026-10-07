@@ -31,6 +31,27 @@ Run("Screen tiles reject finite overflow and extend the infinite grid", () =>
     Assert(!ScreenTileLayout.TryArrange(-1, new Size(640, 480), true, out _), "Negative count.");
     Assert(!ScreenTileLayout.TryArrange(int.MaxValue, new Size(640, 480), true, out _), "Coordinate overflow.");
 });
+Run("Screen tiles honor four independent margins and accept zero insets", () =>
+{
+    Assert(ScreenTileLayout.TryArrange(10, new Size(640, 480), true, out var tiles,
+        left: 12, top: 24, right: 36, bottom: 96), "Custom margins should fit.");
+    Assert(tiles[0] == new Rectangle(-628, -456, 592, 360) && tiles[9] == new Rectangle(-628, 984, 592, 360),
+        "Every row must retain the independent top, right, bottom and left insets.");
+    Assert(tiles[1].X - tiles[0].Right == 48 && tiles[3].Y - tiles[0].Bottom == 120,
+        "Horizontal and vertical gaps must use the sums of the corresponding edges.");
+    Assert(ScreenTileLayout.TryArrange(9, new Size(640, 480), false, out var full,
+        left: 0, top: 0, right: 0, bottom: 0) && full[0] == new Rectangle(-640, -480, 640, 480),
+        "Zero margins should use the complete screen cell.");
+});
+Run("Invalid screen margins reject the whole layout without arithmetic overflow", () =>
+{
+    foreach (var margins in new[] { (-1, 0, 0, 0), (0, -1, 0, 0), (0, 0, -1, 0), (0, 0, 0, -1),
+        (320, 0, 320, 0), (0, 240, 0, 240), (int.MaxValue, 0, int.MaxValue, 0),
+        (0, int.MaxValue, 0, int.MaxValue) })
+        Assert(!ScreenTileLayout.TryArrange(9, new Size(640, 480), false, out var rejected,
+            margins.Item1, margins.Item2, margins.Item3, margins.Item4) && rejected.Length == 0,
+            "Invalid or overflowing margins must not return a partial layout.");
+});
 Run("Short windows fill below the shortest column", () =>
 {
     var sizes = new[] { new Size(100, 300), new Size(100, 100), new Size(100, 100), new Size(100, 80) };
@@ -174,11 +195,13 @@ Run("Legacy layouts and persisted settings and desktop positions remain compatib
         foreach (bool icons in new[] { false, true })
             foreach (bool edges in new[] { false, true })
             {
-                var settings = new AppSettings(infinite, icons, edges);
+                var settings = new AppSettings(infinite, icons, edges, TileTop: 12, TileRight: 34, TileBottom: 96, TileLeft: 56);
                 Assert(JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(settings)) == settings, "Settings are independent and persistent.");
             }
-    Assert(!JsonSerializer.Deserialize<AppSettings>("{\"InfiniteCanvas\":true,\"DesktopIcons\":true}")!.EdgePanning,
-        "Existing settings must leave edge panning disabled.");
+    var oldSettings = JsonSerializer.Deserialize<AppSettings>("{\"InfiniteCanvas\":true,\"DesktopIcons\":true}")!;
+    Assert(!oldSettings.EdgePanning && oldSettings.TileTop == 28 && oldSettings.TileRight == 28 &&
+        oldSettings.TileBottom == 80 && oldSettings.TileLeft == 28,
+        "Existing settings must retain disabled edge panning and the default tile margins.");
 });
 Run("Edge panning follows working-area edges and uses a constant diagonal speed", () =>
 {

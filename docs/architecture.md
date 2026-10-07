@@ -53,9 +53,10 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 多个水平区段；优先放到最低可用位置，高度相同则从左向右。尺寸和间距保持不变。
 计算成功才提交所有坐标，失败不会提交部分排列，也不会把窗口排出可达画布。
 
-`Core/Layout/ScreenTileLayout.cs` 计算独立“整屏平铺”的三列屏幕格子，每格上、左、右
-各留 28px，底部为任务栏留 80px；有限模式最多九格，无限模式增加行。
-先检查完整布局容量再变更镜头和窗口。
+`Core/Layout/ScreenTileLayout.cs` 计算独立“整屏平铺”的三列屏幕格子；四个边距独立传入，
+默认上/右/下/左为 28/28/80/28px。`TryGetContent` 验证非负值及可用尺寸，使用长整数
+检查边距之和以防溢出。有限模式最多九格，无限模式增加行。
+先检查边距和完整布局容量再变更镜头和窗口。
 `Platform/Windows/WindowTiling.cs` 在不激活窗口的前提下还原最大化、调整真实尺寸，
 用 DWM 可见边框补偿不可见原生边框。应用限制尺寸时读回实际结果，在可用区域内居中。
 控制器将首格置于镜头中心，保留隐藏、最小化窗口及桌面图标的原有世界坐标。
@@ -82,6 +83,9 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 ## 设置与桌面图标
 
 `UI/SettingsForm.cs` 显示三个独立勾选项，保存后由控制器应用；重复打开复用同一窗口。
+同页提供四个整屏平铺边距数值控件；UI 和控制器都验证边距不能占满屏幕。
+数值保存到 `AppSettings.TileTop/TileRight/TileBottom/TileLeft`，旧 JSON 自动采用默认值。
+保存不重新摆放窗口，下次平铺读入新值；现有平铺定位记录保留对应布局的实际偏移。
 `SettingsStore` 使用 `JsonStore` 原子保存设置，`StateStore` 使用相同实现保存窗口、镜头和图标。
 旧会话缺少 `DesktopIcons` 时默认为空；关闭图标选项不丢弃已保存位置。
 旧设置缺少 `EdgePanning` 时默认关闭。`Core/Viewport/EdgePan.cs` 根据时间与鼠标位置计算

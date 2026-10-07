@@ -77,16 +77,33 @@ internal static partial class Program
             Check(Bounds(fixtures[9]) == new Rectangle(28, 28, 584, 372),
                 "following a tiled window preserves the taskbar reservation rather than centering on the full screen");
 
+            var custom = new AppSettings(InfiniteCanvas: true, TileTop: 24, TileRight: 36, TileBottom: 96, TileLeft: 12);
+            Set("_settings", custom); ClickButton(1);
+            Check(Bounds(fixtures[0]) == new Rectangle(12, 24, 592, 360) &&
+                Bounds(fixtures[9]) == new Rectangle(12, 1464, 592, 360), "native tiles use all four custom margins in every row");
+            Call("CentreWindow", fixtures[9]);
+            Check(Bounds(fixtures[9]) == new Rectangle(12, 24, 592, 360), "following a tile preserves asymmetric custom margins");
+            var beforeInvalid = fixtures.ToDictionary(hwnd => hwnd, Bounds);
+            var cameraBeforeInvalid = ((float)Get("_panX")!, (float)Get("_panY")!);
+            var invalid = custom with { TileLeft = 640 };
+            Check(Call("ApplySettings", invalid) is string && Get("_settings")!.Equals(custom),
+                "controller rejects invalid margins before writing settings or touching windows");
+            Set("_settings", invalid); ClickButton(1);
+            Check(fixtures.All(hwnd => Bounds(hwnd) == beforeInvalid[hwnd]) &&
+                ((float)Get("_panX")!, (float)Get("_panY")!) == cameraBeforeInvalid,
+                "invalid loaded margins keep the existing native layout and camera unchanged");
+            Set("_settings", custom);
+
             using var constrained = new Form { StartPosition = FormStartPosition.Manual, ShowInTaskbar = true,
                 FormBorderStyle = FormBorderStyle.None, Bounds = new Rectangle(30, 30, 200, 180),
                 MaximumSize = new Size(200, 180) };
             constrained.Show(); Application.DoEvents();
             logical.Clear(); logical[constrained.Handle] = (30, 30);
             ClickButton(1);
-            Check(Bounds(constrained.Handle) == new Rectangle(220, 124, 200, 180),
+            Check(Bounds(constrained.Handle) == new Rectangle(208, 114, 200, 180),
                 "application size constraints are honored and its accepted size is centered in the cell");
             Call("PanTo", -900f, -700f); Call("CentreWindow", constrained.Handle);
-            Check(Bounds(constrained.Handle) == new Rectangle(220, 124, 200, 180),
+            Check(Bounds(constrained.Handle) == new Rectangle(208, 114, 200, 180),
                 "following a constrained tile centers it in the area remaining above the reserved taskbar space");
             ClickButton(0);
             Check(Bounds(constrained.Handle) == new Rectangle(28, 28, 200, 180),

@@ -107,7 +107,15 @@ public sealed partial class CanvasController
         var windows = _logical.Keys.Where(hwnd => WindowFilter.IsManaged(hwnd, _selfPid) &&
             !Win32.IsIconic(hwnd)).ToArray();
         if (windows.Length == 0) return;
-        if (!ScreenTileLayout.TryArrange(windows.Length, new Size(_w, _h), Settings.InfiniteCanvas, out var tiles))
+        if (!ScreenTileLayout.TryGetContent(new Size(_w, _h), Settings.TileLeft, Settings.TileTop,
+            Settings.TileRight, Settings.TileBottom, out var content))
+        {
+            _tray?.ShowBalloonTip(4500, "整屏平铺未完成", "边距设置未给窗口留下可用空间，请在设置中调整整屏平铺边距。",
+                WinForms.ToolTipIcon.Warning);
+            return;
+        }
+        if (!ScreenTileLayout.TryArrange(windows.Length, new Size(_w, _h), Settings.InfiniteCanvas, out var tiles,
+            left: Settings.TileLeft, top: Settings.TileTop, right: Settings.TileRight, bottom: Settings.TileBottom))
         {
             _tray?.ShowBalloonTip(4500, "整屏平铺未完成",
                 "有限画布最多平铺 9 个窗口，已保留原布局。请开启无限画布，或最小化暂不需要的窗口。",
@@ -116,15 +124,12 @@ public sealed partial class CanvasController
         }
         // Check capacity before changing either the camera, window sizes or window states.
         ReturnToNative();
-        var content = new Rectangle(ScreenTileLayout.Margin, ScreenTileLayout.Margin,
-            tiles[0].Width, tiles[0].Height);
         int constrained = 0, failed = 0;
         for (int i = 0; i < windows.Length; i++)
         {
             if (!WindowTiling.TryFit(windows[i], content,
                 out var offset, out bool limited)) { failed++; continue; }
-            _logical[windows[i]] = (tiles[i].X - ScreenTileLayout.Margin + offset.X,
-                tiles[i].Y - ScreenTileLayout.Margin + offset.Y);
+            _logical[windows[i]] = (tiles[i].X - content.X + offset.X, tiles[i].Y - content.Y + offset.Y);
             if (Win32.GetWindowRect(windows[i], out var rect))
                 (_tiledWindows ??= new())[windows[i]] = (offset, new Size(rect.Right - rect.Left, rect.Bottom - rect.Top));
             if (limited) constrained++;
@@ -191,7 +196,7 @@ public sealed partial class CanvasController
     {
         if (!_logical.TryGetValue(hwnd, out var l) || Win32.IsIconic(hwnd) ||
             !Win32.GetWindowRect(hwnd, out var r) || r.Right <= r.Left || r.Bottom <= r.Top) return false;
-        // Keep the taskbar reservation when following a tiled window from the map or taskbar.
+        // Keep this layout's configured insets when following a tile from the map or taskbar.
         if (_tiledWindows?.TryGetValue(hwnd, out var tile) == true)
         {
             if (tile.Size == new Size(r.Right - r.Left, r.Bottom - r.Top))

@@ -413,7 +413,7 @@ internal static partial class Program
         string settingsPath = Path.Combine(root, "settings.json"), statePath = Path.Combine(root, "state.json");
         try
         {
-            var settings = new AppSettings(true, true, true);
+            var settings = new AppSettings(true, true, true, TileTop: 12, TileRight: 34, TileBottom: 96, TileLeft: 56);
             var state = new SessionState { PanX = -90000, DesktopIcons = new() { new("fixture:shortcut", 90500, 70000) } };
             Check(JsonStore.Save(settingsPath, settings) && JsonStore.Load<AppSettings>(settingsPath) == settings,
                 "settings survive atomic disk save and reload");
@@ -428,10 +428,20 @@ internal static partial class Program
     private static void CheckSettings(bool screenshot)
     {
         AppSettings? saved = null;
-        using var form = new SettingsForm(new AppSettings(), settings => { saved = settings; return null; });
+        using var form = new SettingsForm(new AppSettings(), settings => { saved = settings; return null; }, new Size(640, 480));
         form.Show(); Application.DoEvents();
         Check(!form.InfiniteCanvas.Checked && !form.DesktopIcons.Checked && !form.EdgePanning.Checked,
             "settings preserve all default disabled options");
+        Check(form.TileTop.Value == 28 && form.TileRight.Value == 28 && form.TileBottom.Value == 80 && form.TileLeft.Value == 28,
+            "settings display the four original default margins");
+        form.TileLeft.Value = 400; form.TileRight.Value = 240;
+        form.SaveButton.PerformClick();
+        Check(saved == null && form.Visible, "settings reject margins that consume all screen width before applying anything");
+        form.TileLeft.Value = 56; form.TileRight.Value = 34;
+        form.TileTop.Value = 240; form.TileBottom.Value = 240;
+        form.SaveButton.PerformClick();
+        Check(saved == null && form.Visible, "settings reject margins that consume all screen height");
+        form.TileTop.Value = 12; form.TileBottom.Value = 96;
         form.InfiniteCanvas.Checked = true;
         Check(!form.DesktopIcons.Checked && !form.EdgePanning.Checked, "all three settings are independent choices");
         form.DesktopIcons.Checked = true;
@@ -444,7 +454,11 @@ internal static partial class Program
             Console.WriteLine("Settings screenshot: " + path);
         }
         form.SaveButton.PerformClick();
-        Check(saved == new AppSettings(true, true, true) && !form.Visible, "saving settings applies all three choices and closes the window");
+        Check(saved == new AppSettings(true, true, true, 12, 34, 96, 56) && !form.Visible,
+            "saving settings applies the choices and four independent margins");
+        using var reopened = new SettingsForm(saved!, _ => null, new Size(640, 480));
+        Check(reopened.TileTop.Value == 12 && reopened.TileRight.Value == 34 && reopened.TileBottom.Value == 96 && reopened.TileLeft.Value == 56,
+            "reopening settings restores all four custom values");
     }
     private static void CheckDesktopLease()
     {

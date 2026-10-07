@@ -1,4 +1,5 @@
 using PaneSpace.Core.Settings;
+using PaneSpace.Core.Layout;
 using PaneSpace.Core.Sessions;
 using PaneSpace.Persistence;
 using PaneSpace.Platform.Windows;
@@ -27,11 +28,14 @@ public sealed partial class CanvasController
     {
         SetCanvasMode(false);
         if (_settingsForm is { IsDisposed: false }) { _settingsForm.Activate(); return; }
-        _settingsForm = new SettingsForm(Settings, ApplySettings);
+        _settingsForm = new SettingsForm(Settings, ApplySettings, new Size(_w, _h));
         _settingsForm.Show();
     }
     private string? ApplySettings(AppSettings next)
     {
+        if (!ScreenTileLayout.TryGetContent(new Size(_w, _h), next.TileLeft, next.TileTop,
+            next.TileRight, next.TileBottom, out _))
+            return $"边距须为非负数；左右之和须小于 {_w}px，上下之和须小于 {_h}px。";
         var previous = Settings;
         try
         {
