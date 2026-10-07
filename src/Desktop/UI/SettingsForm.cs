@@ -1,5 +1,6 @@
 using PaneSpace.Core.Settings;
 using PaneSpace.Core.Layout;
+using PaneSpace.Core.Viewport;
 
 namespace PaneSpace.UI;
 
@@ -12,22 +13,26 @@ public sealed class SettingsForm : Form
     public NumericUpDown TileRight { get; } = new();
     public NumericUpDown TileBottom { get; } = new();
     public NumericUpDown TileLeft { get; } = new();
+    public NumericUpDown EdgePanSpeed { get; } = new() { Minimum = EdgePan.MinSpeed, Maximum = EdgePan.MaxSpeed, Increment = 50, Width = 100 };
     public Button SaveButton { get; } = new() { Text = "保存", AutoSize = true };
     public SettingsForm(AppSettings settings, Func<AppSettings, string?> apply, Size? screenSize = null)
     {
         Text = "PaneSpace 设置";
         Font = new Font("Microsoft YaHei UI", 10);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(500, 520);
+        ClientSize = new Size(500, 580);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         InfiniteCanvas.Checked = settings.InfiniteCanvas;
         DesktopIcons.Checked = settings.DesktopIcons;
         EdgePanning.Checked = settings.EdgePanning;
+        EdgePanSpeed.Value = Math.Clamp(settings.EdgePanSpeed, EdgePan.MinSpeed, EdgePan.MaxSpeed);
+        EdgePanSpeed.Enabled = EdgePanning.Checked;
+        EdgePanning.CheckedChanged += (_, _) => EdgePanSpeed.Enabled = EdgePanning.Checked;
         var screen = screenSize ?? Screen.PrimaryScreen?.Bounds.Size ?? new Size(1920, 1080);
         var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(22),
-            ColumnCount = 1, RowCount = 11 };
+            ColumnCount = 1, RowCount = 12 };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         layout.Controls.Add(InfiniteCanvas);
         layout.Controls.Add(new Label { Text = "取消 3×3 屏幕边界，可向任意方向持续平移。\n自动排列仍使用 3×3 九屏区域。", AutoSize = true,
@@ -36,8 +41,13 @@ public sealed class SettingsForm : Form
         layout.Controls.Add(new Label { Text = "桌面图标随画布平移和缩放，支持拖动、双击打开。\n位置与设置会保存；关闭或退出后恢复 Windows 桌面。", AutoSize = true,
             Margin = new Padding(22, 4, 0, 12) });
         layout.Controls.Add(EdgePanning);
-        layout.Controls.Add(new Label { Text = "无需按 Ctrl，鼠标停在屏幕工作区边缘即可平移。\n拖动、打开设置或操作任务栏时暂停；默认关闭。", AutoSize = true,
+        layout.Controls.Add(new Label { Text = "无需按 Ctrl，鼠标停在屏幕边缘即可平移并显示方向箭头。\n拖动、打开设置或点击任务栏时暂停；默认关闭。", AutoSize = true,
             Margin = new Padding(22, 4, 0, 12) });
+        var speed = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(22, 0, 0, 8) };
+        speed.Controls.Add(new Label { Text = "移动速度（px/秒）", AutoSize = true, Margin = new Padding(0, 6, 8, 0) });
+        speed.Controls.Add(EdgePanSpeed);
+        speed.Controls.Add(new Label { Text = "50–3000", AutoSize = true, Margin = new Padding(8, 6, 0, 0) });
+        layout.Controls.Add(speed);
         layout.Controls.Add(new Label { Text = "整屏平铺边距（px）", AutoSize = true, Margin = new Padding(3, 8, 3, 4) });
         var margins = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 4, RowCount = 2 };
         for (int i = 0; i < 4; i++) margins.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
@@ -59,7 +69,7 @@ public sealed class SettingsForm : Form
         SaveButton.Click += (_, _) =>
         {
             var next = new AppSettings(InfiniteCanvas.Checked, DesktopIcons.Checked, EdgePanning.Checked,
-                (int)TileTop.Value, (int)TileRight.Value, (int)TileBottom.Value, (int)TileLeft.Value);
+                (int)TileTop.Value, (int)TileRight.Value, (int)TileBottom.Value, (int)TileLeft.Value, (int)EdgePanSpeed.Value);
             if (!ScreenTileLayout.TryGetContent(screen, next.TileLeft, next.TileTop, next.TileRight, next.TileBottom, out _))
             {
                 error.Text = $"左右之和须小于 {screen.Width}px，上下之和须小于 {screen.Height}px。";

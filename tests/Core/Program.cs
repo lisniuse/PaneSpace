@@ -195,15 +195,15 @@ Run("Legacy layouts and persisted settings and desktop positions remain compatib
         foreach (bool icons in new[] { false, true })
             foreach (bool edges in new[] { false, true })
             {
-                var settings = new AppSettings(infinite, icons, edges, TileTop: 12, TileRight: 34, TileBottom: 96, TileLeft: 56);
+                var settings = new AppSettings(infinite, icons, edges, TileTop: 12, TileRight: 34, TileBottom: 96, TileLeft: 56, EdgePanSpeed: 1250);
                 Assert(JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(settings)) == settings, "Settings are independent and persistent.");
             }
     var oldSettings = JsonSerializer.Deserialize<AppSettings>("{\"InfiniteCanvas\":true,\"DesktopIcons\":true}")!;
     Assert(!oldSettings.EdgePanning && oldSettings.TileTop == 28 && oldSettings.TileRight == 28 &&
-        oldSettings.TileBottom == 80 && oldSettings.TileLeft == 28,
-        "Existing settings must retain disabled edge panning and the default tile margins.");
+        oldSettings.TileBottom == 80 && oldSettings.TileLeft == 28 && oldSettings.EdgePanSpeed == 600,
+        "Existing settings retain disabled edge panning, default margins and speed.");
 });
-Run("Edge panning follows working-area edges and uses a constant diagonal speed", () =>
+Run("Edge panning follows all eight physical-screen directions at a constant speed", () =>
 {
     var area = new Rectangle(100, 50, 640, 400);
     foreach (var (cursor, expected) in new[]
@@ -216,10 +216,24 @@ Run("Edge panning follows working-area edges and uses a constant diagonal speed"
         Assert(edge.Step(cursor, area, 1000, true) == PointF.Empty, "Entering an edge must not pan immediately.");
         Near(edge.Step(cursor, area, 1300, true), expected);
     }
-    var corner = new EdgePan(); corner.Step(area.Location, area, 1000, true);
-    var delta = corner.Step(area.Location, area, 1300, true);
-    Assert(Math.Abs(MathF.Sqrt(delta.X * delta.X + delta.Y * delta.Y) - 30) < .002f,
-        "Corners must not scroll faster than individual edges.");
+    foreach (var (cursor, signs) in new[] {
+        (area.Location, new Point(1, 1)), (new Point(area.Right - 1, area.Top), new Point(-1, 1)),
+        (new Point(area.Left, area.Bottom - 1), new Point(1, -1)),
+        (new Point(area.Right - 1, area.Bottom - 1), new Point(-1, -1)) })
+    {
+        var corner = new EdgePan(); corner.Step(cursor, area, 1000, true);
+        var delta = corner.Step(cursor, area, 1300, true);
+        Near(delta, new PointF(signs.X * 30 / MathF.Sqrt(2), signs.Y * 30 / MathF.Sqrt(2)));
+    }
+});
+Run("Edge panning uses persisted speeds and safely clamps malformed values", () =>
+{
+    var area = new Rectangle(0, 0, 640, 480);
+    foreach (var (speed, distance) in new[] { (50, 2.5f), (600, 30f), (1250, 62.5f), (3000, 150f), (-1, 2.5f), (int.MaxValue, 150f) })
+    {
+        var edge = new EdgePan(); edge.Step(new Point(320, 479), area, 1000, true, speed);
+        Near(edge.Step(new Point(320, 479), area, 1300, true, speed), new PointF(0, -distance));
+    }
 });
 Run("Edge panning waits, pauses, ignores other screens and caps delayed ticks", () =>
 {
@@ -232,7 +246,7 @@ Run("Edge panning waits, pauses, ignores other screens and caps delayed ticks", 
     Assert(edge.Step(pointer, area, 10016, false) == PointF.Empty, "Disabled or paused movement stops immediately.");
     Assert(edge.Step(pointer, area, 10032, true) == PointF.Empty, "Resuming requires a new dwell.");
     Assert(edge.Step(new Point(640, 200), area, 11000, true) == PointF.Empty, "Other monitor ignored.");
-    Assert(edge.Step(new Point(639, 425), area, 11016, true) == PointF.Empty, "Taskbar strip ignored.");
+    Assert(edge.Step(new Point(639, 425), area, 11016, true) == PointF.Empty, "Outside the physical screen is ignored.");
     Assert(edge.Step(new Point(300, 200), area, 11032, true) == PointF.Empty, "Interior ignored.");
     Assert(edge.Step(pointer, area, 11048, true) == PointF.Empty, "Moving back into the edge requires a new dwell.");
 });

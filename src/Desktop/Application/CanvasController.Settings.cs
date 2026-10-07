@@ -1,5 +1,6 @@
 using PaneSpace.Core.Settings;
 using PaneSpace.Core.Layout;
+using PaneSpace.Core.Viewport;
 using PaneSpace.Core.Sessions;
 using PaneSpace.Persistence;
 using PaneSpace.Platform.Windows;
@@ -27,12 +28,15 @@ public sealed partial class CanvasController
     private void ShowSettings()
     {
         SetCanvasMode(false);
+        ResetEdgePan();
         if (_settingsForm is { IsDisposed: false }) { _settingsForm.Activate(); return; }
         _settingsForm = new SettingsForm(Settings, ApplySettings, new Size(_w, _h));
         _settingsForm.Show();
     }
     private string? ApplySettings(AppSettings next)
     {
+        if (next.EdgePanSpeed < EdgePan.MinSpeed || next.EdgePanSpeed > EdgePan.MaxSpeed)
+            return $"边缘移动速度须为 {EdgePan.MinSpeed}–{EdgePan.MaxSpeed}px/秒。";
         if (!ScreenTileLayout.TryGetContent(new Size(_w, _h), next.TileLeft, next.TileTop,
             next.TileRight, next.TileBottom, out _))
             return $"边距须为非负数；左右之和须小于 {_w}px，上下之和须小于 {_h}px。";
@@ -46,7 +50,8 @@ public sealed partial class CanvasController
                 return "设置保存失败，请检查本地数据目录的写入权限。";
             }
             _settings = next;
-            _edgePan?.Reset(); _edgePanning = false;
+            ResetEdgePan();
+            if (!next.EdgePanning) { _edgeCursor?.Dispose(); _edgeCursor = null; }
             if (!next.DesktopIcons) DisableDesktopIcons();
             if (previous.InfiniteCanvas && !next.InfiniteCanvas) ClampContentToFinite();
             var camera = Viewport.Clamp(); _panX = camera.PanX; _panY = camera.PanY;

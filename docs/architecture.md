@@ -27,7 +27,7 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 | `CanvasController.Actions.cs` | 平移、瀑布流、归中、小地图聚焦 |
 | `CanvasController.Taskbar.cs` | 任务栏点击识别与恢复后的延迟定位 |
 | `CanvasController.Input.cs` | Ctrl 轮询、鼠标消息、命中检测 |
-| `CanvasController.EdgePan.cs` | 工作区边缘采样、交互暂停和镜头平移 |
+| `CanvasController.EdgePan.cs` | 屏幕边缘采样、交互暂停、镜头平移和方向光标协调 |
 | `CanvasController.Zoom.cs` | 缩放镜头、实时预览协调及回到原生视图 |
 | `CanvasController.Settings.cs` | 设置窗口、独立选项、桌面图标生命周期和刷新 |
 | `CanvasController.Rendering.cs` | 网格、按钮、小地图、共享 DIB 缓冲与呈现 |
@@ -90,8 +90,17 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 旧会话缺少 `DesktopIcons` 时默认为空；关闭图标选项不丢弃已保存位置。
 旧设置缺少 `EdgePanning` 时默认关闭。`Core/Viewport/EdgePan.cs` 根据时间与鼠标位置计算
 屏幕像素位移，处理 12px 热区、250ms 停留、斜向归一化和 50ms 最大时间步长。
-控制器的既有 16ms 轮询采样主屏工作区边缘，交互期间暂停；通过 `CanvasViewport.Drag`
-换算缩放位移并应用有限或无限边界。它不自动进入 Ctrl 画布模式，不安装新的全局钩子。
+速度保存为 `AppSettings.EdgePanSpeed`，范围 50–3000 屏幕像素/秒，默认 600，旧 JSON 使用默认值。
+控制器的既有 16ms 轮询采样主屏实际 `Bounds`，包括任务栏覆盖的下边缘和两个下角；
+仅悬停任务栏不暂停，点击、鼠标按键、滚轮、拖动、菜单和设置交互会暂停。
+通过 `CanvasViewport.Drag` 换算缩放位移并应用有限或无限边界，不自动进入 Ctrl 画布模式。
+
+`Rendering/EdgePanCursorFactory.cs` 生成八向箭头原生光标，箭头尖端为热点，避免在屏幕边缘裁掉箭头主体。
+`EdgePanCursorSurface` 仅在镜头实际移动时显示对应边缘的 Alpha=1、不激活置顶窗口，
+通过 `WM_SETCURSOR` 持续显示方向箭头，不修改系统光标方案。
+其低级鼠标钩子在按键或滚轮进入目标消息队列之前隐藏反馈窗口并暂停平移，
+原事件正常传给下方应用或任务栏，不吞掉或重新合成点击；离开边缘、禁用和退出也释放反馈及光标资源。
+参考 [微软低级鼠标钩子时序说明](https://learn.microsoft.com/en-us/windows/win32/winmsg/lowlevelmouseproc)。
 
 `DesktopShell` 通过 `IShellWindows → IShellBrowser → IFolderView2` 读取实际桌面项和位置，
 包括文件、快捷方式及虚拟 Shell 项目；通过 Explorer 的 ShellExecute 打开项目。

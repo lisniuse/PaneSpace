@@ -61,6 +61,8 @@ public static class Win32
     [DllImport("user32.dll")] public static extern IntPtr SetCursor(IntPtr hCursor);
     [DllImport("user32.dll")] public static extern bool GetIconInfo(IntPtr hIcon, out ICONINFO info);
     [DllImport("user32.dll")] public static extern IntPtr CreateIconIndirect(ref ICONINFO ii);
+    [DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr hIcon);
+    [DllImport("user32.dll")] public static extern bool DestroyCursor(IntPtr hCursor);
     [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr hWnd, IntPtr hdc);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);

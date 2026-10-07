@@ -22,7 +22,7 @@ click a preview to return to 100% and interact with the original application.
 ## Features
 
 - **Drag to pan:** move across the canvas without rearranging individual windows.
-- **Optional edge panning:** move the pointer to a working-area edge and pause briefly
+- **Optional edge panning:** move the pointer to a screen edge and pause briefly
   to scroll the camera without Ctrl. Disabled by default and configurable in settings.
 - **Optional infinite canvas:** keep panning in any direction, with a minimap
   that fits the camera and all content. Automatic arrangement still uses nine screens.
@@ -82,8 +82,8 @@ publishing entry point. Build output is excluded from this repository.
 | Drag a canvas desktop icon | Reposition that icon and save its world position |
 | Double-click a canvas desktop icon | Open the file, folder or shortcut |
 | Click a purple minimap icon block | Center the camera on that desktop icon |
-| Tray → 设置… | Configure canvas options and the four screen-tiling margins |
-| Pointer near a working-area edge, with edge panning enabled | Scroll the camera after a short dwell, without Ctrl |
+| Tray → 设置… | Configure canvas options, edge speed and the four screen-tiling margins |
+| Pointer near a screen edge, with edge panning enabled | Scroll the camera with a directional arrow after a short dwell, without Ctrl |
 | 全部搬回中心屏 | Move the window group back to the center screen |
 | 复位 button / Tray → 画布归位 | Reset to 100% and zero camera offset |
 | Tray → Exit | Save the canvas layout and bring its windows back onto the screens |
@@ -116,10 +116,16 @@ Right-click the tray icon, choose **设置…**, and save any combination of ind
   icons while PaneSpace runs. Icons follow pan and zoom, keep their saved positions,
   and support dragging and double-click opening. Added or removed items are refreshed.
 - **屏幕边缘平移 — Edge panning:** hold the pointer within 12px of a primary-screen
-  working-area edge for 250ms to scroll in that direction, including diagonally.
-  The bottom edge sits above the taskbar. Scrolling pauses while dragging, pressing
-  mouse buttons, using menus or the taskbar, and while settings are open. It works
+  physical edge for 250ms to scroll in that direction, including diagonally.
+  A directional arrow appears while scrolling; bottom edges and corners work over
+  the taskbar too. Scrolling pauses while dragging, pressing mouse buttons, scrolling
+  the wheel, opening menus, clicking the taskbar, and while settings are open. It works
   in native and zoomed views and respects the finite canvas boundary.
+
+**移动速度（px/秒） — Edge speed:** choose **50–3000 screen pixels per second**,
+default **600**. The speed is saved and applies after saving settings; diagonal
+movement has the same total speed as horizontal or vertical movement. Older settings
+use 600. Enable edge panning to edit its speed.
 
 **整屏平铺边距（px） — Screen-tiling margins:** independently set **top, right,
 bottom and left**, defaulting to **28, 28, 80 and 28px**. Values may be zero;

@@ -144,6 +144,7 @@ internal static partial class Program
             CheckDesktopIcons(args.Contains("--icons-screenshot"));
             CheckPersistence();
             CheckSettings(args.Contains("--settings-screenshot"));
+            CheckEdgeCursor();
             Console.WriteLine("All native desktop checks passed; only test windows were moved.");
         }
         finally
@@ -299,7 +300,7 @@ internal static partial class Program
             Check((float)Get("_panX")! == 640 && (float)Get("_panY")! == -480,
                 "disabling infinite mode restores the finite camera bounds");
             Call("PanTo", 0f, 0f);
-            var edgeArea = new Rectangle(0, 0, 640, 440);
+            var edgeArea = new Rectangle(0, 0, 640, 480);
             var edgePoint = new Point(639, 200);
             Call("ProcessEdgePan", edgePoint, edgeArea, 1000L, false);
             Call("ProcessEdgePan", edgePoint, edgeArea, 1300L, false);
@@ -310,6 +311,7 @@ internal static partial class Program
             Call("ProcessEdgePan", edgePoint, edgeArea, 2300L, false);
             Check((float)Get("_panX")! == -30 && Bounds(source.Handle).X == beforeEdge.X - 30,
                 "edge panning moves native windows without Ctrl or entering canvas mode");
+            Check((Point)Get("_edgeCursorDirection")! == new Point(1, 0), "feedback points in the camera's direction");
             Call("ProcessEdgePan", edgePoint, edgeArea, 2316L, true);
             Check((float)Get("_panX")! == -30, "interacting with windows, settings or taskbar pauses edge movement");
             Call("ProcessEdgePan", edgePoint, edgeArea, 2332L, false);
@@ -337,6 +339,22 @@ internal static partial class Program
             Call("ProcessEdgePan", edgePoint, edgeArea, 4348L, false);
             Call("ProcessEdgePan", edgePoint, edgeArea, 4648L, false);
             Check(logical[source.Handle] == worldBeforeEdges, "repeated fractional edge-scroll sessions preserve world positions without rounding drift");
+            foreach (var pointer in new[] { new Point(320, 479), new Point(0, 479), new Point(639, 479) })
+            {
+                Call("PanTo", 0f, 0f); Call("ResetEdgePan");
+                Set("_settings", new AppSettings(InfiniteCanvas: true, EdgePanning: true, EdgePanSpeed: 1200));
+                var previous = Bounds(source.Handle);
+                Call("ProcessEdgePan", pointer, edgeArea, 5000L, false);
+                Call("ProcessEdgePan", pointer, edgeArea, 5300L, false);
+                float expectedBottomPan = pointer.X == 320 ? -60 : -60 / MathF.Sqrt(2);
+                Check(Math.Abs((float)Get("_panY")! - expectedBottomPan) < .002f && Bounds(source.Handle).Y < previous.Y,
+                    "bottom and both bottom corners pan actual native windows at the configured speed");
+                Check(((Point)Get("_edgeCursorDirection")!).Y == 1, "bottom feedback points down");
+                Call("ProcessEdgePan", pointer, edgeArea, 5316L, true);
+                Check((Point)Get("_edgeCursorDirection")! == Point.Empty, "paused edge movement clears arrow feedback");
+            }
+            Check(Call("ApplySettings", new AppSettings(EdgePanSpeed: 0)) is string,
+                "invalid speed is rejected before persisting settings or changing windows");
         }
         finally
         {
@@ -413,7 +431,7 @@ internal static partial class Program
         string settingsPath = Path.Combine(root, "settings.json"), statePath = Path.Combine(root, "state.json");
         try
         {
-            var settings = new AppSettings(true, true, true, TileTop: 12, TileRight: 34, TileBottom: 96, TileLeft: 56);
+            var settings = new AppSettings(true, true, true, TileTop: 12, TileRight: 34, TileBottom: 96, TileLeft: 56, EdgePanSpeed: 1250);
             var state = new SessionState { PanX = -90000, DesktopIcons = new() { new("fixture:shortcut", 90500, 70000) } };
             Check(JsonStore.Save(settingsPath, settings) && JsonStore.Load<AppSettings>(settingsPath) == settings,
                 "settings survive atomic disk save and reload");
@@ -434,6 +452,7 @@ internal static partial class Program
             "settings preserve all default disabled options");
         Check(form.TileTop.Value == 28 && form.TileRight.Value == 28 && form.TileBottom.Value == 80 && form.TileLeft.Value == 28,
             "settings display the four original default margins");
+        Check(form.EdgePanSpeed.Value == 600 && !form.EdgePanSpeed.Enabled, "speed defaults to 600 and is disabled with edge panning");
         form.TileLeft.Value = 400; form.TileRight.Value = 240;
         form.SaveButton.PerformClick();
         Check(saved == null && form.Visible, "settings reject margins that consume all screen width before applying anything");
@@ -446,6 +465,8 @@ internal static partial class Program
         Check(!form.DesktopIcons.Checked && !form.EdgePanning.Checked, "all three settings are independent choices");
         form.DesktopIcons.Checked = true;
         form.EdgePanning.Checked = true;
+        Check(form.EdgePanSpeed.Enabled, "enabling edge panning enables its speed control");
+        form.EdgePanSpeed.Value = 1250;
         if (screenshot)
         {
             using var bitmap = new Bitmap(form.Width, form.Height);
@@ -454,11 +475,12 @@ internal static partial class Program
             Console.WriteLine("Settings screenshot: " + path);
         }
         form.SaveButton.PerformClick();
-        Check(saved == new AppSettings(true, true, true, 12, 34, 96, 56) && !form.Visible,
-            "saving settings applies the choices and four independent margins");
+        Check(saved == new AppSettings(true, true, true, 12, 34, 96, 56, 1250) && !form.Visible,
+            "saving settings applies the choices, margins and scrolling speed");
         using var reopened = new SettingsForm(saved!, _ => null, new Size(640, 480));
         Check(reopened.TileTop.Value == 12 && reopened.TileRight.Value == 34 && reopened.TileBottom.Value == 96 && reopened.TileLeft.Value == 56,
             "reopening settings restores all four custom values");
+        Check(reopened.EdgePanSpeed.Value == 1250, "reopening settings restores the saved speed");
     }
     private static void CheckDesktopLease()
     {

@@ -6,13 +6,14 @@ namespace PaneSpace.Core.Viewport;
 public sealed class EdgePan
 {
     public const int EdgeWidth = 12, DwellMilliseconds = 250;
-    public const float PixelsPerSecond = 600;
+    public const int PixelsPerSecond = 600, MinSpeed = 50, MaxSpeed = 3000;
+    public Point Direction => _direction;
     private Point _direction;
     private long _enteredAt, _lastTick;
 
     public void Reset() { _direction = Point.Empty; _enteredAt = _lastTick = 0; }
 
-    public PointF Step(Point cursor, Rectangle area, long now, bool allowed)
+    public PointF Step(Point cursor, Rectangle area, long now, bool allowed, int speed = PixelsPerSecond)
     {
         if (!allowed || !area.Contains(cursor) || area.Width <= 2 * EdgeWidth || area.Height <= 2 * EdgeWidth)
         { Reset(); return PointF.Empty; }
@@ -27,7 +28,7 @@ public sealed class EdgePan
         long elapsed = Math.Clamp(now - _lastTick, 0, 50);
         _lastTick = now;
         if (now - _enteredAt < DwellMilliseconds) return PointF.Empty;
-        float distance = PixelsPerSecond * elapsed / 1000f;
+        float distance = Math.Clamp(speed, MinSpeed, MaxSpeed) * elapsed / 1000f;
         if (direction.X != 0 && direction.Y != 0) distance /= MathF.Sqrt(2);
         return new PointF(direction.X * distance, direction.Y * distance);
     }

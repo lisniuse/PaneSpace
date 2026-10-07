@@ -23,7 +23,7 @@ internal static class PackageCheck
             using var settings = new SettingsForm(new AppSettings(), _ => null);
             _ = settings.Handle;
             if (settings.EdgePanning.Checked || settings.TileTop.Value != 28 || settings.TileRight.Value != 28 ||
-                settings.TileBottom.Value != 80 || settings.TileLeft.Value != 28 || icon.Width <= 0)
+                settings.TileBottom.Value != 80 || settings.TileLeft.Value != 28 || settings.EdgePanSpeed.Value != 600 || icon.Width <= 0)
                 throw new InvalidOperationException("Bundled UI resources failed.");
             var edges = new EdgePan();
             var area = new Rectangle(0, 0, 640, 480);

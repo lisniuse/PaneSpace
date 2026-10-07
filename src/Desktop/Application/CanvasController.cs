@@ -116,6 +116,7 @@ public sealed partial class CanvasController : IDisposable
         SaveSession();
         _saveTimer?.Dispose();
         _pollTimer?.Dispose();
+        _edgeCursor?.Dispose();
         _events?.Dispose();
         _wheelHook?.Dispose();
         _settingsForm?.Dispose();
