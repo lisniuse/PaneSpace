@@ -144,7 +144,7 @@ internal static partial class Program
             CheckDesktopIcons(args.Contains("--icons-screenshot"));
             CheckPersistence();
             CheckSettings(args.Contains("--settings-screenshot"));
-            CheckEdgeCursor();
+            CheckEdgeCursor(args.Contains("--edge-cursor-smoke"));
             Console.WriteLine("All native desktop checks passed; only test windows were moved.");
         }
         finally

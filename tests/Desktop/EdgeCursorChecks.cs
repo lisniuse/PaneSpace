@@ -19,8 +19,12 @@ internal static partial class Program
     private struct CursorInfo { public uint Size, Flags; public IntPtr Cursor; public Win32.POINT Position; }
     [DllImport("user32.dll")]
     private static extern bool GetCursorInfo(ref CursorInfo info);
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetCursor();
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
-    private static void CheckEdgeCursor()
+    private static void CheckEdgeCursor(bool interactive)
     {
         Win32.GetCursorPos(out var original);
         int interrupted = 0, clicks = 0;
@@ -42,15 +46,20 @@ internal static partial class Program
             {
                 int x = direction.X < 0 ? area.Left + 1 : direction.X > 0 ? area.Right - 2 : area.Left + area.Width / 2;
                 int y = direction.Y < 0 ? area.Top + 1 : direction.Y > 0 ? area.Bottom - 2 : area.Top + area.Height / 2;
-                Win32.SetCursorPos(x, y); Application.DoEvents();
+                if (interactive) { Win32.SetCursorPos(x, y); Application.DoEvents(); }
                 surface.ShowFeedback(area, direction); Application.DoEvents();
                 Check(Win32.WindowFromPoint(new Win32.POINT { X = x, Y = y }) == surface.Handle,
                     "edge feedback owns cursor input even above another native window");
                 Check(handles.Add(surface.CursorHandle) && surface.CursorHandle != IntPtr.Zero,
                     "each of the eight directions has a valid native cursor");
-                var visibleCursor = new CursorInfo { Size = (uint)Marshal.SizeOf<CursorInfo>() };
-                Check(GetCursorInfo(ref visibleCursor) && visibleCursor.Cursor == surface.CursorHandle,
-                    "Windows displays the directional cursor above the underlying window");
+                SendMessage(surface.Handle, Win32.WM_SETCURSOR, surface.Handle, (IntPtr)1 /* HTCLIENT */);
+                Check(GetCursor() == surface.CursorHandle, "WM_SETCURSOR selects the requested native direction");
+                if (interactive)
+                {
+                    var visibleCursor = new CursorInfo { Size = (uint)Marshal.SizeOf<CursorInfo>() };
+                    Check(GetCursorInfo(ref visibleCursor) && visibleCursor.Cursor == surface.CursorHandle,
+                        "Windows displays the directional cursor above the underlying window");
+                }
                 Check(Win32.GetIconInfo(surface.CursorHandle, out var info) && !info.fIcon,
                     "direction artwork is a cursor, not an icon");
                 try
@@ -63,6 +72,13 @@ internal static partial class Program
                     (foreground == IntPtr.Zero || Win32.GetForegroundWindow() == foreground),
                     "edge cursor never takes foreground focus");
                 surface.HideFeedback();
+                Check(!surface.Visible && Win32.WindowFromPoint(new Win32.POINT { X = x, Y = y }) == fixture.Handle,
+                    "hiding feedback restores the underlying native input target");
+            }
+            if (!interactive)
+            {
+                Console.WriteLine("INFO visible global cursor and real click-through require --edge-cursor-smoke on an interactive desktop.");
+                return;
             }
             Win32.SetCursorPos(area.Left + 80, area.Bottom - 2); Application.DoEvents();
             surface.ShowFeedback(area, new Point(0, 1)); Application.DoEvents();
@@ -76,7 +92,7 @@ internal static partial class Program
             Check(Win32.GetForegroundWindow() != surface.Handle &&
                 (foreground == IntPtr.Zero || Win32.GetForegroundWindow() == foreground), "cursor feedback and fixture click keep the original focus");
         }
-        finally { surface.HideFeedback(); Win32.SetCursorPos(original.X, original.Y); }
+        finally { surface.HideFeedback(); if (interactive) Win32.SetCursorPos(original.X, original.Y); }
     }
 
     private sealed class CursorProbeForm : Form
