@@ -50,6 +50,7 @@ public sealed partial class CanvasController
         _focusNotBefore = now + 120;
         _focusExpires = now + 1500;
         _taskbarClickUntil = 0;                       // consume this taskbar interaction
+        _desktopLaunchUntil = 0;                     // or this explicit desktop icon launch
     }
 
     private void ProcessTaskbarFocus(IntPtr foreground, long now)

@@ -11,6 +11,8 @@ public sealed class WindowPreview : Form
     private readonly List<RectangleF> _unavailable = new();
     private IntPtr[] _order = Array.Empty<IntPtr>();
     public int LiveCount => _thumbnails.Count;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public Action<Graphics>? BackgroundPainter { get; set; }
     protected override bool ShowWithoutActivation => true;
     protected override CreateParams CreateParams
     {
@@ -18,6 +20,7 @@ public sealed class WindowPreview : Form
     }
     public WindowPreview(int width, int height)
     {
+        AutoScaleMode = AutoScaleMode.None;
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         Bounds = new Rectangle(0, 0, width, height);
@@ -91,6 +94,7 @@ public sealed class WindowPreview : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
+        BackgroundPainter?.Invoke(e.Graphics);
         using var fill = new SolidBrush(Color.FromArgb(52, 70, 94));
         foreach (var bounds in _unavailable)
         {

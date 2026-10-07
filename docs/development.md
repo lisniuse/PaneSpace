@@ -36,6 +36,7 @@ pwsh -NoProfile -File scripts/publish.ps1 -SkipTests
 脚本按自身位置解析项目根目录，从其他工作目录调用也会使用本项目的 SDK 策略和
 固定 `dist` 输出。`build.cmd` 调用 PowerShell 发布脚本，支持相同参数并传递退出码。
 发布会停止 PaneSpace 和旧名 CamCanvas 进程；新程序需要手动启动。
+桌面图标接管时，发布只结束主程序，保留恢复伴随进程并等待它恢复图标、退出后再覆盖文件。
 
 不启用 `PublishSingleFile`：本项目此前实测单文件 apphost 在提权启动时会卡住。
 发布成功后清理 `dist` 中旧产品名的程序文件，保留唯一入口 `PaneSpace.exe`。
@@ -59,10 +60,24 @@ pwsh -NoProfile -File scripts/publish.ps1 -SkipTests
 
 修改 Win32 输入、绘制或生命周期时，还应验证真实桌面行为，包括 Ctrl 门控、
 小地图点击、任务栏唤起、最小化恢复以及退出归位。
+默认检查还覆盖无限镜头、图标拖动/渲染、设置控件及临时目录中的存档读写。
+默认检查不会隐藏实际桌面图标。可选本机验证：
+
+```powershell
+# 只读验证真实 Explorer 图标枚举
+dotnet run --project tests/Desktop -c Release -- --read-desktop
+# 临时隐藏再恢复原桌面，验证图标目录及位置保持不变
+dotnet run --project tests/Desktop -c Release -- --desktop-visibility-smoke
+# 验证正常释放和异常退出伴随进程恢复；存在接管票据时跳过
+dotnet run --project tests/Desktop -c Release -- --desktop-lease-smoke
+# 使用独立图标和窗口生成临时目录中的设置/图标截图
+dotnet run --project tests/Desktop -c Release -- --icons-screenshot --settings-screenshot
+```
 
 ## 状态与诊断
 
 - 存档：`%LOCALAPPDATA%/PaneSpace/state.json`，首次启动兼容旧 CamCanvas 存档。
+- 设置：同目录 `settings.json`；恢复伴随进程票据：`desktop-recovery.json`，正常恢复后删除。
 - 当前小地图诊断日志：`%TEMP%/camcanvas-map.log`，名称暂时保留供已有诊断流程使用。
 - 旧存档不会删除；新保存使用 PaneSpace 路径，JSON 字段保持兼容。
 - 正常退出先保存画布，再将受管理窗口收回可见工作区；托盘菜单为“退出 PaneSpace（收回窗口）”。

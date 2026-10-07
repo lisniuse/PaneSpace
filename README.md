@@ -12,7 +12,8 @@
 
 PaneSpace (窗域) gives your application windows a navigable desktop canvas. Hold
 **Ctrl while the desktop is foreground**, then drag to explore a workspace spanning
-**3 × 3 primary-screen areas**. A minimap helps you find windows and jump back to them.
+**3 × 3 primary-screen areas** by default. Enable **Infinite canvas** in the tray
+settings to remove that camera boundary. A minimap helps you find windows and jump back to them.
 
 At 100%, the app moves real windows and keeps their sizes intact. Wheel zoom uses
 live window previews from 25% to 200%, anchored at the pointer. Release Ctrl or
@@ -21,6 +22,10 @@ click a preview to return to 100% and interact with the original application.
 ## Features
 
 - **Drag to pan:** move across the canvas without rearranging individual windows.
+- **Optional infinite canvas:** keep panning in any direction, with a minimap
+  that fits the camera and all content. Automatic arrangement still uses nine screens.
+- **Optional desktop icons:** include desktop files, shortcuts, folders and Shell
+  items in the canvas; drag to reposition or double-click to open them.
 - **Wheel zoom:** browse live window contents at 25%–200%; the grid and minimap
   viewport follow the camera. Window sizes remain unchanged.
 - **Interactive minimap:** click a window block to center and activate that window.
@@ -28,8 +33,9 @@ click a preview to return to 100% and interact with the original application.
   and the camera follows it, within the canvas bounds.
 - **Masonry arrangement:** pack mixed-size windows into the lowest available space,
   allowing wide windows to span columns without resizing them.
-- **Layout persistence:** remember the camera and window positions across sessions.
-- **Tray controls:** reset the camera or exit from the PaneSpace tray icon.
+- **Layout persistence:** remember the camera, window positions, icon positions,
+  and settings across sessions.
+- **Tray controls:** open settings, reset the camera or exit from the PaneSpace tray icon.
 - **Safe exit:** save the canvas layout, then return its windows to visible screen
   work areas, along with their visible dialogs. Minimized windows stay minimized
   and receive reachable restore positions.
@@ -65,7 +71,11 @@ publishing entry point. Build output is excluded from this repository.
 | Release Ctrl after zooming | Return to 100% around the current view center |
 | Click a minimap window block | Center and activate that window |
 | Activate a window from the taskbar | Follow the restored or activated window |
-| 自动排列(全画布) | Arrange visible, non-minimized windows across the canvas |
+| 自动排列(全画布) | Arrange visible, non-minimized windows inside the 3 × 3 area, in either mode |
+| Drag a canvas desktop icon | Reposition that icon and save its world position |
+| Double-click a canvas desktop icon | Open the file, folder or shortcut |
+| Click a purple minimap icon block | Center the camera on that desktop icon |
+| Tray → 设置… | Configure infinite canvas and desktop icons |
 | 全部搬回中心屏 | Move the window group back to the center screen |
 | 复位 button / Tray → 画布归位 | Reset to 100% and zero camera offset |
 | Tray → Exit | Save the canvas layout and bring its windows back onto the screens |
@@ -73,6 +83,21 @@ publishing entry point. Build output is excluded from this repository.
 The current toolbar and tray menus use Chinese labels. If an arrangement cannot
 fit all eligible windows, PaneSpace keeps the existing layout and shows a notice.
 Esc does not reset the camera or move windows; use the reset button or tray menu.
+
+## Settings
+
+Right-click the tray icon, choose **设置…**, and save either or both independent options:
+
+- **无限画布 — Infinite canvas:** remove the nine-screen camera boundary. Turning
+  it off brings content outside the finite canvas back inside its bounds.
+  Automatic arrangement always retains the original 3 × 3 area.
+- **桌面图标 — Desktop icons:** replace the native desktop icon view with canvas
+  icons while PaneSpace runs. Icons follow pan and zoom, keep their saved positions,
+  and support dragging and double-click opening. Added or removed items are refreshed.
+
+Both options start disabled. Turning desktop icons off or exiting restores the
+original Windows desktop visibility and layout. A recovery companion also restores
+the native view after an abrupt app exit. Desktop files are not moved or renamed.
 
 ## Development
 
@@ -88,6 +113,8 @@ Native desktop checks also create isolated test windows to verify exit recovery,
 including minimized, maximized, partially off-screen, and oversized windows.
 Zoom checks cover cursor anchoring, scale limits, drag distances, live thumbnails,
 mouse message handling, native-size preservation, and input-surface alpha.
+Additional checks cover unbounded cameras, dynamic overview bounds, desktop icon
+input and rendering, settings controls, atomic persistence, and legacy layout data.
 
 ```text
 PaneSpace/
@@ -130,17 +157,21 @@ See the [brand asset guide](assets/branding/README.md) for colors and variants.
 Layouts are saved to `%LOCALAPPDATA%/PaneSpace/state.json`. If that file does not
 exist, PaneSpace reads the old `%LOCALAPPDATA%/CamCanvas/state.json` on startup;
 subsequent saves use the new location. The old file is preserved.
+Desktop icon positions use Shell paths as identities and are stored in the same
+layout file. Options are stored separately in `%LOCALAPPDATA%/PaneSpace/settings.json`.
 
 ## Current limits
 
-- The canvas is bounded to 3 × 3 primary-screen areas. Multi-monitor canvas
-  support is not implemented.
+- The viewport uses the primary screen. Multi-monitor canvas support is not implemented.
+- Infinite mode removes the camera boundary; automatic arrangement still targets
+  nine screens and keeps the existing layout if all windows cannot fit.
 - Scaled views are live previews. Application interaction resumes at 100%;
-  zoom is temporary and is not saved. Returning to 100% clamps the camera to
-  the canvas bounds. Minimized windows remain accessible from the minimap.
+  zoom is temporary and is not saved. In finite mode, returning to 100% clamps the
+  camera to the canvas bounds. Minimized windows remain accessible from the minimap.
 - Protected or unavailable window content may appear as a placeholder; click it
   to open the original window.
-- Desktop icons, the taskbar, and wallpaper do not move with the windows.
+- The taskbar and wallpaper remain fixed. Desktop icons participate when their setting is enabled.
+- Canvas icons support dragging and double-click opening; use File Explorer for other file operations.
 - Maximized windows may behave awkwardly when moved. Some applications suspend
   drawing when their windows are completely off-screen.
 - Hidden and minimized windows do not participate in automatic arrangement.

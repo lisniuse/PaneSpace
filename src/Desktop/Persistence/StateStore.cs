@@ -1,4 +1,3 @@
-using System.Text.Json;
 using PaneSpace.Core.Sessions;
 
 namespace PaneSpace.Persistence;
@@ -16,29 +15,12 @@ public static class StateStore
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "CamCanvas", "state.json");
 
-    public static void Save(SessionState s)
-    {
-        try
-        {
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FilePath)!);
-            // write-rename for atomicity
-            string tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(tmp, FilePath, overwrite: true);
-        }
-        catch { /* never break the app for persistence */ }
-    }
+    public static void Save(SessionState s) => JsonStore.Save(FilePath, s);
 
     public static SessionState? Load()
     {
-        try
-        {
-            // Read the old product's layout on first run; subsequent saves use PaneSpace.
-            string path = File.Exists(FilePath) ? FilePath : LegacyFilePath;
-            return File.Exists(path)
-                ? JsonSerializer.Deserialize<SessionState>(File.ReadAllText(path))
-                : null;
-        }
-        catch { return null; }
+        // Read the old product's layout on first run; subsequent saves use PaneSpace.
+        string path = File.Exists(FilePath) ? FilePath : LegacyFilePath;
+        return JsonStore.Load<SessionState>(path);
     }
 }

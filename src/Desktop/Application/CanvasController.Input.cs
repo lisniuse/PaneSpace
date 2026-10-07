@@ -35,7 +35,7 @@ public sealed partial class CanvasController
             {
                 if (ForegroundIsDesktop()) SetCanvasMode(true);
             }
-            else if (!ctrl && _lastCtrl && !_dragging)
+            else if (!ctrl && _lastCtrl && !_dragging && !_iconDragging)
                 SetCanvasMode(false);
             _lastCtrl = ctrl;
             if ((_dragAccX != 0 || _dragAccY != 0) && _dragging)
@@ -46,6 +46,7 @@ public sealed partial class CanvasController
             }
             ProcessTaskbarFocus(Win32.GetForegroundWindow(), Environment.TickCount64);
             if (PreviewActive && Environment.TickCount64 - _previewRefreshed >= 100) RefreshPreview();
+            if (_desktopIcons != null && Environment.TickCount64 - _iconsRefreshed >= 2000) RefreshDesktopIcons();
         };
         _pollTimer.Start();
     }
@@ -63,7 +64,8 @@ public sealed partial class CanvasController
         else
         {
             _wheelHook?.Dispose(); _wheelHook = null;
-            _hoverHwnd = IntPtr.Zero; _dragging = false; _dragAccX = _dragAccY = 0; ScheduleSave();
+            _hoverHwnd = IntPtr.Zero; _dragging = false; _iconDragging = false;
+            _desktopIcons?.EndDrag(); _dragAccX = _dragAccY = 0; ScheduleSave();
         }
         ComposeFull();
     }
@@ -82,7 +84,7 @@ public sealed partial class CanvasController
                 {
                     var p = new Point(gp.X, gp.Y);
                     c = (MapRect.Contains(p) && MapHit(p) != IntPtr.Zero) || InBar(p) ||
-                        (PreviewActive && (_preview?.Hit(p) ?? IntPtr.Zero) != IntPtr.Zero)
+                        (PreviewActive && (_preview?.Hit(p) ?? IntPtr.Zero) != IntPtr.Zero) || DesktopIconHit(p) != null
                         ? _curHand : GrabCursor.Handle;
                 }
                 Win32.SetCursor(c != IntPtr.Zero ? c : _curArrow);
@@ -94,14 +96,21 @@ public sealed partial class CanvasController
                 _downPos = p;
                 _dragTravel = 0;
                 _downHwnd = IntPtr.Zero;
+                _downMapIcon = null;
                 if (_canvasMode)
                 {
                     for (int i = 0; i < Buttons.Length; i++)
                         if (BarRect(i).Contains(p)) { _downHwnd = IntPtr.Zero; return IntPtr.Zero; }
+                    _downMapIcon = MapIconHit(p);
+                    if (_downMapIcon != null) return IntPtr.Zero;
                     _downHwnd = MapHit(p);
                     MapDbg($"DOWN p={p.X},{p.Y} down={_downHwnd.ToInt64():X} hits={_mapHits.Count} map={MapRect}");
                     if (_downHwnd != IntPtr.Zero) return IntPtr.Zero;   // map click, not drag
                     if (PreviewActive) _downHwnd = _preview?.Hit(p) ?? IntPtr.Zero;
+                    if (DesktopIconHit(p) != null && _desktopIcons!.BeginDrag(p, Viewport))
+                    {
+                        _iconDragging = true; Win32.SetCapture(hWnd); return IntPtr.Zero;
+                    }
                 }
                 _dragging = true;
                 _lastPos = p;
@@ -111,6 +120,7 @@ public sealed partial class CanvasController
             case Win32.WM_MOUSEMOVE:
             {
                 var p = ScreenPt(lParam);
+                if (_iconDragging) { _desktopIcons?.DragTo(p, Viewport); return IntPtr.Zero; }
                 if (_dragging)
                 {
                     _dragTravel += Math.Abs(p.X - _lastPos.X) + Math.Abs(p.Y - _lastPos.Y);
@@ -129,6 +139,13 @@ public sealed partial class CanvasController
             case Win32.WM_LBUTTONUP:
             {
                 var p = ScreenPt(lParam);
+                if (_iconDragging)
+                {
+                    _desktopIcons?.DragTo(p, Viewport); _desktopIcons?.EndDrag();
+                    _iconDragging = false; Win32.ReleaseCapture(); ScheduleSave();
+                    if ((Win32.GetAsyncKeyState(Win32.VK_CONTROL) & 0x8000) == 0) SetCanvasMode(false);
+                    return IntPtr.Zero;
+                }
                 if (_dragging)
                 {
                     _dragging = false;
@@ -160,7 +177,10 @@ public sealed partial class CanvasController
                     // few px away inside the map still counts as a click on it
                     MapDbg($"UP p={p.X},{p.Y} down={_downHwnd.ToInt64():X} inMap={MapRect.Contains(p)} drag={_dragging}");
                     if (_downHwnd != IntPtr.Zero && MapRect.Contains(p)) FocusWindowOnMap(_downHwnd);
+                    if (_downMapIcon != null && MapRect.Contains(p) && IconPositions.TryGetValue(_downMapIcon, out var icon))
+                        PanTo(_w / 2f - icon.X - 50, _h / 2f - icon.Y - 46);
                     _downHwnd = IntPtr.Zero;
+                    _downMapIcon = null;
                 }
                 return IntPtr.Zero;
             }
@@ -169,6 +189,18 @@ public sealed partial class CanvasController
                 short d = unchecked((short)((long)wParam >> 16));
                 if (_canvasMode) ZoomAt(ScreenPt(lParam), d);
                 return IntPtr.Zero;
+            }
+            case Win32.WM_LBUTTONDBLCLK:
+            {
+                var p = ScreenPt(lParam);
+                if (_canvasMode && !InBar(p) && !MapRect.Contains(p) && DesktopIconHit(p) != null)
+                {
+                    _iconDragging = false; Win32.ReleaseCapture();
+                    _desktopIcons?.OpenAt(p, Viewport);
+                    return IntPtr.Zero;
+                }
+                if (_canvasMode) return LayerWndProc(hWnd, Win32.WM_LBUTTONDOWN, wParam, lParam);
+                break;
             }
         }
         return Win32.DefWindowProc(hWnd, msg, wParam, lParam);
@@ -197,6 +229,15 @@ public sealed partial class CanvasController
             if (d < bestD) { bestD = d; best = _mapHits[i].Hwnd; }
         }
         return best;
+    }
+
+    private string? MapIconHit(Point p)
+    {
+        if (!MapRect.Contains(p)) return null;
+        if (_mapHits.Any(hit => hit.Rect.Contains(p))) return null;
+        for (int i = _mapIconHits.Count - 1; i >= 0; i--)
+            if (_mapIconHits[i].Rect.Contains(p)) return _mapIconHits[i].Path;
+        return null;
     }
 
     private static Point ScreenPt(IntPtr lParam)

@@ -10,7 +10,7 @@ public sealed partial class CanvasController
     private float _zoom = 1, _nativePanX, _nativePanY;
     private WindowPreview? _preview;
     private long _previewRefreshed;
-    private CanvasViewport Viewport => new(_w, _h, _panX, _panY, _zoom);
+    private CanvasViewport Viewport => new(_w, _h, _panX, _panY, _zoom, Settings.InfiniteCanvas);
     private bool PreviewActive => _canvasMode && _zoom != 1;
 
     private void ZoomAt(Point mouse, int delta)
@@ -29,6 +29,7 @@ public sealed partial class CanvasController
         if (PreviewActive) RefreshPreview();
         else { ApplyPan(); _preview?.EndPreview(); }
         ComposeFull();
+        RenderDesktopIcons();
     }
     private void ReturnToNative()
     {
@@ -37,6 +38,7 @@ public sealed partial class CanvasController
         _zoom = 1; _panX = native.PanX; _panY = native.PanY;
         ApplyPan();
         _preview?.EndPreview();
+        RenderDesktopIcons();
     }
     private void RefreshPreview()
     {
@@ -53,6 +55,7 @@ public sealed partial class CanvasController
         windows.Reverse();
         _preview.UpdateWindows(windows, Viewport);
         _preview.PresentBelow(_layer);
+        RenderDesktopIcons();
         _previewRefreshed = Environment.TickCount64;
     }
 }

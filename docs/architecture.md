@@ -28,6 +28,7 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 | `CanvasController.Taskbar.cs` | 任务栏点击识别与恢复后的延迟定位 |
 | `CanvasController.Input.cs` | Ctrl 轮询、鼠标消息、命中检测 |
 | `CanvasController.Zoom.cs` | 缩放镜头、实时预览协调及回到原生视图 |
+| `CanvasController.Settings.cs` | 设置窗口、独立选项、桌面图标生命周期和刷新 |
 | `CanvasController.Rendering.cs` | 网格、按钮、小地图、共享 DIB 缓冲与呈现 |
 | `CanvasController.Session.cs` | 会话组装、窗口身份匹配和恢复 |
 
@@ -55,7 +56,9 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 
 `Core/Viewport/CanvasViewport.cs` 计算缩放、鼠标锚点、逆变换、拖动和视口边界。
 镜头偏移使用世界单位，屏幕坐标为 `(world + pan - screenCenter) * scale + screenCenter`。
-100% 与既有 `real = logical + pan` 一致；视口小于画布时限制在画布内，大于画布时居中。
+100% 与既有 `real = logical + pan` 一致；有限模式视口小于画布时限制在画布内，大于画布时居中。
+无限模式跳过边界限制，`CanvasOverview` 动态计算小地图范围；自动排列仍使用固定九屏矩形。
+极远窗口停放在安全原生坐标，逻辑位置保持不变，进入画布时跳过停放窗口的位置重同步。
 
 `Rendering/WindowPreview.cs` 持有不激活的普通顶层窗口及 DWM 缩略图；平台声明在
 `Platform/Windows/Dwm.cs`。预览宿主在分层输入窗口下方，按真实窗口层级由下至上登记。
@@ -63,5 +66,25 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 内容由 DWM 实时更新；拖动及滚轮立即刷新镜头，不调整原窗口尺寸。
 
 缩放时原窗口不移动；松开 Ctrl 或点击预览，按当前视口中心恢复 100% 并应用真实窗口
-位置，然后隐藏预览、释放缩略图。比例不写入会话，既有 JSON 格式保持兼容。
+位置，然后隐藏预览、释放缩略图。无限模式恢复 100% 保留镜头位置。比例不写入会话，既有 JSON 格式保持兼容。
 测试只向控制器注入独立窗口，不执行真实窗口枚举或读写用户存档。
+
+## 设置与桌面图标
+
+`UI/SettingsForm.cs` 显示两个独立勾选项，保存后由控制器应用；重复打开复用同一窗口。
+`SettingsStore` 使用 `JsonStore` 原子保存设置，`StateStore` 使用相同实现保存窗口、镜头和图标。
+旧会话缺少 `DesktopIcons` 时默认为空；关闭图标选项不丢弃已保存位置。
+
+`DesktopShell` 通过 `IShellWindows → IShellBrowser → IFolderView2` 读取实际桌面项和位置，
+包括文件、快捷方式及虚拟 Shell 项目；通过 Explorer 的 ShellExecute 打开项目。
+不修改 Explorer 图标坐标和实际文件。接口槽位对应 Windows SDK 声明，不向跨进程 ListView 写坐标。
+参考 [微软桌面图标接口示例](https://devblogs.microsoft.com/oldnewthing/20130318-00/?p=4933/)。
+
+`DesktopIconCanvas` 管理按 Shell 路径识别的图标、世界坐标、命中、拖动及绘制。
+`DesktopIconSurface` 使用共享 PArgb DIB，在壁纸上方、普通窗口下方呈现可交互图标。
+预览缩放时图标改由 `WindowPreview` 背景绘制，DWM 窗口缩略图保持在图标上方。
+
+`DesktopIconLease` 隐藏原生桌面视图窗口，保留可枚举项目；直接设置 `FWF_NOICONS` 会清空
+视图项目列表，因此不能用它实现接管。保存原先显示状态并启动恢复伴随进程；退出或禁用时恢复，
+异常退出由伴随进程处理。恢复票据包含进程 ID、启动时间和恢复进程 ID，启动时也处理遗留票据。
+程序使用同一用户会话内的单实例互斥量，恢复伴随进程不启动画布或读取会话布局。

@@ -1,6 +1,9 @@
 using System.Drawing;
 using PaneSpace.Core.Layout;
 using PaneSpace.Core.Viewport;
+using PaneSpace.Core.Settings;
+using PaneSpace.Core.Sessions;
+using System.Text.Json;
 
 int passed = 0;
 Run("Short windows fill below the shortest column", () =>
@@ -106,6 +109,48 @@ Run("Zoom and camera limits keep the 3x3 canvas reachable", () =>
     }
     Assert(camera.Wheel(new PointF(960, 540), 60).Scale > 1 &&
         camera.Wheel(new PointF(960, 540), 60).Scale < 1.15f, "Partial wheel deltas must be supported.");
+});
+Run("Infinite cameras have no nine-screen boundary at any scale", () =>
+{
+    foreach (float scale in new[] { .25f, 1f, 2f })
+    {
+        var camera = new CanvasViewport(1920, 1080, -384000, 216000, scale, Infinite: true);
+        Assert(camera.Clamp() == camera, "Infinite camera must not be clamped.");
+        var dragged = camera.Drag(19200, -10800);
+        Assert(dragged.PanX == camera.PanX + 19200 / scale && dragged.PanY == camera.PanY - 10800 / scale,
+            "Far-away drags must preserve their full distance.");
+        var native = (dragged with { Scale = 1 }).Clamp();
+        Assert(native.PanX == dragged.PanX && native.PanY == dragged.PanY, "Returning to native scale preserves an infinite camera.");
+    }
+    var edge = new CanvasViewport(1920, 1080, 5000, -6000, Infinite: true);
+    var cursor = new PointF(123, 456);
+    var point = edge.ToWorld(cursor);
+    Near(edge.ZoomAt(cursor, .5f).ToScreen(point), cursor);
+});
+Run("Infinite overview includes distant content and the current viewport", () =>
+{
+    var camera = new CanvasViewport(1920, 1080, 100000, -200000, Infinite: true);
+    var content = new[] { new RectangleF(-500000, -400000, 300, 200), new RectangleF(300000, 600000, 100, 90) };
+    var bounds = CanvasOverview.Bounds(camera, content);
+    Assert(bounds.Contains(camera.VisibleWorld) && content.All(bounds.Contains), "Overview must include all world content and the camera.");
+    Assert(Math.Abs(bounds.Width / bounds.Height - 1920f / 1080) < .00001f, "Minimap keeps the screen aspect ratio.");
+    Assert(CanvasOverview.Bounds(camera with { Infinite = false }, content) == new RectangleF(-1920, -1080, 5760, 3240),
+        "Finite mode retains the original nine-screen overview.");
+});
+Run("Legacy layouts and persisted settings and desktop positions remain compatible", () =>
+{
+    var legacy = JsonSerializer.Deserialize<SessionState>("{\"PanX\":12,\"PanY\":34,\"Windows\":[]}")!;
+    Assert(legacy.DesktopIcons.Count == 0 && legacy.PanX == 12, "Legacy layout defaults to an empty icon list.");
+    var state = new SessionState { PanX = -90000, PanY = 50000,
+        DesktopIcons = new() { new DesktopIconState("C:\\fixture\\shortcut.lnk", 90500, -49200) } };
+    var restored = JsonSerializer.Deserialize<SessionState>(JsonSerializer.Serialize(state))!;
+    Assert(restored.PanX == state.PanX && restored.DesktopIcons.SequenceEqual(state.DesktopIcons), "Far-away icon positions survive serialization.");
+    foreach (bool infinite in new[] { false, true })
+        foreach (bool icons in new[] { false, true })
+        {
+            var settings = new AppSettings(infinite, icons);
+            Assert(JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(settings)) == settings, "Settings are independent and persistent.");
+        }
 });
 Console.WriteLine($"All {passed} core checks passed.");
 

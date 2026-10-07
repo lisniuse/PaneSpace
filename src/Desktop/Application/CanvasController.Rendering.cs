@@ -3,6 +3,7 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
 using PaneSpace.Core.Layout;
+using PaneSpace.Core.Viewport;
 using PaneSpace.Core.Sessions;
 using PaneSpace.Persistence;
 using PaneSpace.Platform.Windows;
@@ -38,6 +39,7 @@ public sealed partial class CanvasController
         var wc = new Win32.WNDCLASSEX
         {
             cbSize = (uint)Marshal.SizeOf<Win32.WNDCLASSEX>(),
+            style = 8, // CS_DBLCLKS, for desktop icon activation
             lpfnWndProc = _layerProc,
             hInstance = instance,
             hCursor = Win32.LoadCursorW(IntPtr.Zero, (IntPtr)32649), // hand (fallback)
@@ -166,37 +168,50 @@ public sealed partial class CanvasController
     private void DrawMap(Graphics g)
     {
         var mr = MapRect;
-        float s = MAP_W / (3f * _w);
+        var windows = new List<(IntPtr Hwnd, RectangleF World)>();
+        foreach (var (hwnd, logical) in _logical)
+        {
+            if (!Win32.IsWindow(hwnd) || !Win32.GetWindowRect(hwnd, out var r)) continue;
+            windows.Add((hwnd, new RectangleF(logical.X, logical.Y,
+                Math.Max(r.Right - r.Left, 40), Math.Max(r.Bottom - r.Top, 20))));
+        }
+        var icons = _desktopIcons?.Bounds.ToArray() ?? Array.Empty<(string Path, RectangleF Bounds)>();
+        var overview = CanvasOverview.Bounds(Viewport, windows.Select(window => window.World).Concat(icons.Select(icon => icon.Bounds)));
+        float s = MAP_W / overview.Width;
+        Rectangle MapBounds(RectangleF world) => new(
+            mr.X + (int)((world.X - overview.X) * s), mr.Y + TITLE_H + (int)((world.Y - overview.Y) * s),
+            Math.Max((int)(world.Width * s), 3), Math.Max((int)(world.Height * s), 2));
         _mapHits.Clear();
+        _mapIconHits.Clear();
         using var bg = new SolidBrush(Color.FromArgb(SOLID_A, 16, 20, 26));
         g.FillRectangle(bg, mr);
         using var winBrush = new SolidBrush(Color.FromArgb(SOLID_A, 96, 158, 218));
         using var hlBrush = new SolidBrush(Color.FromArgb(255, 250, 205, 120));
         using var vpPen = new Pen(Color.White, 2f);
         using var border = new Pen(Color.FromArgb(230, 190, 200, 215), 1f);
-
-        foreach (var (hwnd, logical) in _logical)
+        using var iconBrush = new SolidBrush(Color.FromArgb(SOLID_A, 175, 140, 225));
+        var mapClip = g.Save();
+        g.SetClip(new Rectangle(mr.X, mr.Y + TITLE_H, mr.Width, mr.Height - TITLE_H));
+        foreach (var (path, bounds) in icons)
         {
-            if (!Win32.IsWindow(hwnd)) continue;
-            Win32.GetWindowRect(hwnd, out var r);
-            int ww = Math.Max(r.Right - r.Left, 40), wh = Math.Max(r.Bottom - r.Top, 20);
-            var rc = new Rectangle(
-                mr.X + (int)((logical.X + _w) * s),
-                mr.Y + TITLE_H + (int)((logical.Y + _h) * s),
-                Math.Max((int)(ww * s), 3), Math.Max((int)(wh * s), 2));
+            var rc = MapBounds(bounds);
+            g.FillRectangle(iconBrush, rc); _mapIconHits.Add((rc, path));
+        }
+
+        foreach (var (hwnd, world) in windows)
+        {
+            var rc = MapBounds(world);
             g.FillRectangle(hwnd == _hoverHwnd ? hlBrush : winBrush, rc);
             _mapHits.Add((rc, hwnd));
         }
         var viewport = Viewport.VisibleWorld;
-        var previousClip = g.Save();
-        g.SetClip(new Rectangle(mr.X, mr.Y + TITLE_H, mr.Width, mr.Height - TITLE_H));
         g.DrawRectangle(vpPen,
-            mr.X + (viewport.X + _w) * s, mr.Y + TITLE_H + (viewport.Y + _h) * s,
+            mr.X + (viewport.X - overview.X) * s, mr.Y + TITLE_H + (viewport.Y - overview.Y) * s,
             viewport.Width * s, viewport.Height * s);
-        g.Restore(previousClip);
+        g.Restore(mapClip);
         g.DrawRectangle(border, mr.X, mr.Y, mr.Width - 1, mr.Height - 1);
 
-        string ttl = $"{_zoom:P0} · 滚轮缩放";
+        string ttl = $"{(Settings.InfiniteCanvas ? "∞ · " : "")}{_zoom:P0} · 滚轮缩放";
         if (_hoverHwnd != IntPtr.Zero && Win32.IsWindow(_hoverHwnd))
         {
             _title.Clear();

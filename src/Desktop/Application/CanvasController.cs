@@ -69,6 +69,7 @@ public sealed partial class CanvasController : IDisposable
         Win32.SetProcessDpiAwarenessContext(Win32.DPI_PER_MONITOR_V2);
         _w = Win32.GetSystemMetrics(0);
         _h = Win32.GetSystemMetrics(1);
+        _settings = SettingsStore.Load();
 
         CreateLayer();
         StartPolling();
@@ -92,10 +93,20 @@ public sealed partial class CanvasController : IDisposable
         var home = new WinForms.ToolStripMenuItem("画布归位");
         home.Click += (_, _) => ResetPan();
         menu.Items.Add(home);
+        var settings = new WinForms.ToolStripMenuItem("设置…");
+        settings.Click += (_, _) => ShowSettings();
+        menu.Items.Add(settings);
         var quit = new WinForms.ToolStripMenuItem("退出 PaneSpace（收回窗口）");
         quit.Click += (_, _) => WinForms.Application.Exit();
         menu.Items.Add(quit);
         _tray.ContextMenuStrip = menu;
+        if (Settings.DesktopIcons)
+        {
+            try { EnableDesktopIcons(); }
+            catch (Exception e) when (e is System.Runtime.InteropServices.COMException or IOException or
+                InvalidOperationException or System.ComponentModel.Win32Exception)
+            { _tray.ShowBalloonTip(4000, "桌面图标未启用", "请在设置中重新保存桌面图标选项。", WinForms.ToolTipIcon.Warning); }
+        }
     }
 
     public void Dispose()
@@ -107,6 +118,8 @@ public sealed partial class CanvasController : IDisposable
         _pollTimer?.Dispose();
         _events?.Dispose();
         _wheelHook?.Dispose();
+        _settingsForm?.Dispose();
+        DisableDesktopIcons();
         _preview?.Dispose();
         // Keep the saved canvas layout, but leave the live windows reachable after exit.
         WindowRecovery.ReturnToScreens(_logical.Keys.ToArray());

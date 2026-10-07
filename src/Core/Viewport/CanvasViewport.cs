@@ -3,7 +3,8 @@ using System.Drawing;
 namespace PaneSpace.Core.Viewport;
 
 /// <summary>World-unit camera offset; scale one matches native window coordinates.</summary>
-public readonly record struct CanvasViewport(float Width, float Height, float PanX, float PanY, float Scale = 1)
+public readonly record struct CanvasViewport(float Width, float Height, float PanX, float PanY, float Scale = 1,
+    bool Infinite = false)
 {
     public const float MinScale = .25f, MaxScale = 2f;
     public PointF ToScreen(PointF world) => new(
@@ -17,6 +18,7 @@ public readonly record struct CanvasViewport(float Width, float Height, float Pa
         new SizeF(world.Width * Scale, world.Height * Scale));
     public CanvasViewport Clamp()
     {
+        if (Infinite) return this;
         float limitX = Width * Math.Max(0, (3 - 1 / Scale) / 2);
         float limitY = Height * Math.Max(0, (3 - 1 / Scale) / 2);
         return this with { PanX = Math.Clamp(PanX, -limitX, limitX), PanY = Math.Clamp(PanY, -limitY, limitY) };

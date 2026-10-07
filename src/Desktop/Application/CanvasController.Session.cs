@@ -24,7 +24,7 @@ public sealed partial class CanvasController
 
     private void SaveSession()
     {
-        var st = new SessionState { PanX = _panX, PanY = _panY };
+        var st = new SessionState { PanX = _panX, PanY = _panY, DesktopIcons = IconPositions.Values.ToList() };
         foreach (var (hwnd, l) in _logical)
         {
             if (!Win32.IsWindow(hwnd)) continue;
@@ -41,7 +41,9 @@ public sealed partial class CanvasController
     private void RestoreSession()
     {
         var st = StateStore.Load();
-        if (st == null || st.Windows.Count == 0) return;
+        if (st == null) return;
+        foreach (var icon in st.DesktopIcons)
+            if (!string.IsNullOrWhiteSpace(icon.Path) && float.IsFinite(icon.X) && float.IsFinite(icon.Y)) IconPositions[icon.Path] = icon;
 
         var consumed = new bool[st.Windows.Count];
         // pass 1: exact identity (exe + title)
@@ -52,8 +54,8 @@ public sealed partial class CanvasController
         foreach (var hwnd in _logical.Keys.ToArray())
             if (!_matched.Contains(hwnd)) TryMatch(hwnd, st, consumed, exactOnly: false);
 
-        _panX = Math.Clamp(st.PanX, -_w, _w);
-        _panY = Math.Clamp(st.PanY, -_h, _h);
+        var camera = (Viewport with { PanX = st.PanX, PanY = st.PanY }).Clamp();
+        _panX = camera.PanX; _panY = camera.PanY;
         ApplyPan();
     }
     private readonly HashSet<IntPtr> _matched = new();

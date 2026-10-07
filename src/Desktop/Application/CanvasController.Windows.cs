@@ -13,6 +13,7 @@ namespace PaneSpace.Application;
 
 public sealed partial class CanvasController
 {
+    private HashSet<IntPtr>? _parked;
     // ---- window bookkeeping --------------------------------------------------------
 
     private void SeedWindows()
@@ -41,12 +42,13 @@ public sealed partial class CanvasController
             case Win32.EVENT_SYSTEM_MINIMIZEEND:
                 TrackWindow(hwnd);
                 if (type != Win32.EVENT_OBJECT_CREATE && WindowFilter.IsManaged(hwnd, _selfPid) &&
-                    TaskbarWasClicked())
+                    (TaskbarWasClicked() || Environment.TickCount64 < _desktopLaunchUntil))
                     QueueTaskbarFocus(hwnd, Environment.TickCount64);
                 break;
             case Win32.EVENT_OBJECT_DESTROY:
                 if (Win32.IsWindow(hwnd)) break;      // fake-destroy broadcast
                 _logical.Remove(hwnd);
+                _parked?.Remove(hwnd);
                 if (_pendingTaskbarFocus == hwnd) _pendingTaskbarFocus = IntPtr.Zero;
                 break;
         }
@@ -67,7 +69,7 @@ public sealed partial class CanvasController
         if (PreviewActive) return; // native windows stay stationary while the preview camera moves
         foreach (var hwnd in _logical.Keys.ToArray())
         {
-            if (!Win32.IsWindow(hwnd) || Win32.IsIconic(hwnd)) continue;
+            if (!Win32.IsWindow(hwnd) || Win32.IsIconic(hwnd) || _parked?.Contains(hwnd) == true) continue;
             var p = RealPos(hwnd);
             _logical[hwnd] = (p.X - (int)_panX, p.Y - (int)_panY);
         }

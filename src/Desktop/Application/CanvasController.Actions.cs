@@ -31,13 +31,21 @@ public sealed partial class CanvasController
         {
             if (!Win32.IsWindow(hwnd)) { _dead.Add(hwnd); continue; }
             if (Win32.IsIconic(hwnd)) continue;
+            double x = (double)logical.X + _panX, y = (double)logical.Y + _panY;
+            if (Math.Abs(x) > 24000 || Math.Abs(y) > 24000)
+            {
+                // Keep distant windows in safe native coordinates, preserving their world position.
+                (_parked ??= new()).Add(hwnd); x = Math.Min(_w + 8192, 24000); y = -8192;
+            }
+            else _parked?.Remove(hwnd);
             info = Win32.DeferWindowPos(info, hwnd, IntPtr.Zero,
-                (int)Math.Round(logical.X + _panX), (int)Math.Round(logical.Y + _panY), 0, 0,
+                (int)Math.Round(x), (int)Math.Round(y), 0, 0,
                 Win32.SWP_NOSIZE_ | Win32.SWP_NOZORDER_ | Win32.SWP_NOACTIVATE_ | Win32.SWP_NOOWNERZORDER);
         }
         Win32.EndDeferWindowPos(info);
-        foreach (var d in _dead) _logical.Remove(d);
+        foreach (var d in _dead) { _logical.Remove(d); _parked?.Remove(d); }
         _dead.Clear();
+        RenderDesktopIcons();
         if (_canvasMode) ComposeFull();
         ScheduleSave();
     }
@@ -51,8 +59,8 @@ public sealed partial class CanvasController
 
     private void PanTo(float panX, float panY)
     {
-        _panX = Math.Clamp(panX, -_w, _w);
-        _panY = Math.Clamp(panY, -_h, _h);
+        var camera = (Viewport with { PanX = panX, PanY = panY }).Clamp();
+        _panX = camera.PanX; _panY = camera.PanY;
         ApplyPan();
     }
 
