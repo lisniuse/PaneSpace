@@ -59,7 +59,7 @@ public sealed partial class CanvasController : IDisposable
     private IntPtr _hoverHwnd;
     private int _ulwErrCount;
 
-    private static readonly string[] Buttons = { "自动排列(全画布)", "全部搬回中心屏", "复位" };
+    private static readonly string[] Buttons = { "自动排列(全画布)", "整屏平铺", "全部搬回中心屏", "复位" };
 
     private Cursor? _grabCursor;
     private Cursor GrabCursor => _grabCursor ??= GrabCursorFactory.Create();

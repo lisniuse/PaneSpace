@@ -26,8 +26,11 @@ public sealed partial class CanvasController
     private Rectangle BarRect(int i)
     {
         int x = (_w - BarTotalWidth) / 2;
+        int y = _h - BAR_H - 24;
+        // On smaller screens keep the new button and reset clear of the minimap.
+        if (x + BarTotalWidth > MapRect.Left) y = MapRect.Top - BAR_H - BAR_PAD;
         for (int k = 0; k < i; k++) x += BarItemWidth(k) + BAR_PAD;
-        return new Rectangle(x, _h - BAR_H - 24, BarItemWidth(i), BAR_H);
+        return new Rectangle(x, y, BarItemWidth(i), BAR_H);
     }
 
     // ---- composition + UpdateLayeredWindow ---------------------------------------------

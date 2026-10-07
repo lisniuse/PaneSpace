@@ -15,7 +15,7 @@ PaneSpace (窗域) gives your application windows a navigable desktop canvas. Ho
 **3 × 3 primary-screen areas** by default. Enable **Infinite canvas** in the tray
 settings to remove that camera boundary. A minimap helps you find windows and jump back to them.
 
-At 100%, the app moves real windows and keeps their sizes intact. Wheel zoom uses
+At 100%, panning moves real windows and keeps their sizes intact. Wheel zoom uses
 live window previews from 25% to 200%, anchored at the pointer. Release Ctrl or
 click a preview to return to 100% and interact with the original application.
 
@@ -33,6 +33,8 @@ click a preview to return to 100% and interact with the original application.
   and the camera follows it, within the canvas bounds.
 - **Masonry arrangement:** pack mixed-size windows into the lowest available space,
   allowing wide windows to span columns without resizing them.
+- **Screen tiling:** resize each window to one primary-screen cell with 28px margins,
+  then arrange the cells in three columns. Infinite mode adds rows beyond nine windows.
 - **Layout persistence:** remember the camera, window positions, icon positions,
   and settings across sessions.
 - **Tray controls:** open settings, reset the camera or exit from the PaneSpace tray icon.
@@ -72,6 +74,7 @@ publishing entry point. Build output is excluded from this repository.
 | Click a minimap window block | Center and activate that window |
 | Activate a window from the taskbar | Follow the restored or activated window |
 | 自动排列(全画布) | Arrange visible, non-minimized windows inside the 3 × 3 area, in either mode |
+| 整屏平铺 | Resize and center each window in a screen cell, with 28px margins on all sides |
 | Drag a canvas desktop icon | Reposition that icon and save its world position |
 | Double-click a canvas desktop icon | Open the file, folder or shortcut |
 | Click a purple minimap icon block | Center the camera on that desktop icon |
@@ -83,6 +86,15 @@ publishing entry point. Build output is excluded from this repository.
 The current toolbar and tray menus use Chinese labels. If an arrangement cannot
 fit all eligible windows, PaneSpace keeps the existing layout and shows a notice.
 Esc does not reset the camera or move windows; use the reset button or tray menu.
+
+**整屏平铺 — Screen tiling** returns to 100% and centers the first cell in the
+viewport. Adjacent windows have a 56px gap, since both cells contribute a 28px
+margin. Finite mode supports up to nine windows and preserves the entire layout
+if that limit is exceeded; infinite mode continues in additional rows. Maximized
+windows are restored before resizing; hidden and minimized windows are excluded.
+Applications with size constraints keep their accepted size, centered in the cell,
+and a tray notice reports constrained or unsuccessful adjustments. Desktop icon
+positions are unchanged. The masonry button retains its original behavior.
 
 ## Settings
 
@@ -115,6 +127,8 @@ Zoom checks cover cursor anchoring, scale limits, drag distances, live thumbnail
 mouse message handling, native-size preservation, and input-surface alpha.
 Additional checks cover unbounded cameras, dynamic overview bounds, desktop icon
 input and rendering, settings controls, atomic persistence, and legacy layout data.
+Screen-tiling checks cover margins, finite overflow, additional infinite rows,
+maximized windows, application size constraints and toolbar input during zoom.
 
 ```text
 PaneSpace/

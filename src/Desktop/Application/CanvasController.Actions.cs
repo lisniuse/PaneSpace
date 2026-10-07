@@ -100,6 +100,37 @@ public sealed partial class CanvasController
         ApplyPan();
     }
 
+    private void TileToScreen()
+    {
+        var windows = _logical.Keys.Where(hwnd => WindowFilter.IsManaged(hwnd, _selfPid) &&
+            !Win32.IsIconic(hwnd)).ToArray();
+        if (windows.Length == 0) return;
+        if (!ScreenTileLayout.TryArrange(windows.Length, new Size(_w, _h), Settings.InfiniteCanvas, out var tiles))
+        {
+            _tray?.ShowBalloonTip(4500, "整屏平铺未完成",
+                "有限画布最多平铺 9 个窗口，已保留原布局。请开启无限画布，或最小化暂不需要的窗口。",
+                WinForms.ToolTipIcon.Warning);
+            return;
+        }
+        // Check capacity before changing either the camera, window sizes or window states.
+        ReturnToNative();
+        int constrained = 0, failed = 0;
+        for (int i = 0; i < windows.Length; i++)
+        {
+            if (!WindowTiling.TryFit(windows[i], new Size(_w, _h), ScreenTileLayout.Margin,
+                out var offset, out bool limited)) { failed++; continue; }
+            _logical[windows[i]] = (tiles[i].X - ScreenTileLayout.Margin + offset.X,
+                tiles[i].Y - ScreenTileLayout.Margin + offset.Y);
+            if (limited) constrained++;
+        }
+        _panX = _w; _panY = _h; // Center the first screen cell in the viewport.
+        ApplyPan();
+        if (constrained > 0 || failed > 0)
+            _tray?.ShowBalloonTip(4500, "整屏平铺",
+                $"{constrained} 个窗口有尺寸限制，已按实际尺寸居中；{failed} 个窗口未能调整。",
+                WinForms.ToolTipIcon.Info);
+    }
+
     private void GatherToCentreScreen()
     {
         int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;

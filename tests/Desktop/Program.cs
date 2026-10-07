@@ -12,7 +12,7 @@ using PaneSpace.Core.Sessions;
 using PaneSpace.Persistence;
 using PaneSpace.UI;
 
-internal static class Program
+internal static partial class Program
 {
     [STAThread]
     private static void Main(string[] args)
@@ -140,6 +140,7 @@ internal static class Program
             Console.WriteLine("PASS destroyed handles are ignored");
             CheckPreview(args.Contains("--preview-screenshot"));
             CheckZoomInput();
+            CheckScreenTiling();
             CheckDesktopIcons(args.Contains("--icons-screenshot"));
             CheckPersistence();
             CheckSettings(args.Contains("--settings-screenshot"));

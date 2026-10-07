@@ -168,9 +168,15 @@ public sealed partial class CanvasController
                 if (_canvasMode)
                 {
                     for (int i = 0; i < Buttons.Length; i++)
-                        if (BarRect(i).Contains(p) && _downPos == p || BarRect(i).Contains(p))
+                        if (BarRect(i).Contains(p) && BarRect(i).Contains(_downPos))
                         {
-                            if (i == 0) AutoArrange(); else if (i == 1) GatherToCentreScreen(); else ResetPan();
+                            switch (i)
+                            {
+                                case 0: AutoArrange(); break;
+                                case 1: TileToScreen(); break;
+                                case 2: GatherToCentreScreen(); break;
+                                case 3: ResetPan(); break;
+                            }
                             return IntPtr.Zero;
                         }
                     // be forgiving with tiny map blocks: pressing one and releasing a
@@ -206,9 +212,7 @@ public sealed partial class CanvasController
         return Win32.DefWindowProc(hWnd, msg, wParam, lParam);
     }
 
-    private bool InBar(Point p) =>
-        p.Y >= _h - BAR_H - 24 && p.Y <= _h - 24 &&
-        p.X >= (_w - BarTotalWidth) / 2 && p.X <= (_w + BarTotalWidth) / 2;
+    private bool InBar(Point p) => Enumerable.Range(0, Buttons.Length).Any(i => BarRect(i).Contains(p));
 
     private IntPtr MapHit(Point screenPt)
     {
