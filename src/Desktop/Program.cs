@@ -9,6 +9,10 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+        if (args.Length == 2 && args[0] == "--verify-package")
+        {
+            PackageCheck.Run(args[1]); return;
+        }
         if (args.Length == 3 && args[0] == "--restore-desktop-icons" &&
             int.TryParse(args[1], out int processId) && long.TryParse(args[2], out long startTicks))
         {

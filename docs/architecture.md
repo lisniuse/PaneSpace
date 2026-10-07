@@ -27,6 +27,7 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 | `CanvasController.Actions.cs` | 平移、瀑布流、归中、小地图聚焦 |
 | `CanvasController.Taskbar.cs` | 任务栏点击识别与恢复后的延迟定位 |
 | `CanvasController.Input.cs` | Ctrl 轮询、鼠标消息、命中检测 |
+| `CanvasController.EdgePan.cs` | 工作区边缘采样、交互暂停和镜头平移 |
 | `CanvasController.Zoom.cs` | 缩放镜头、实时预览协调及回到原生视图 |
 | `CanvasController.Settings.cs` | 设置窗口、独立选项、桌面图标生命周期和刷新 |
 | `CanvasController.Rendering.cs` | 网格、按钮、小地图、共享 DIB 缓冲与呈现 |
@@ -80,9 +81,13 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 
 ## 设置与桌面图标
 
-`UI/SettingsForm.cs` 显示两个独立勾选项，保存后由控制器应用；重复打开复用同一窗口。
+`UI/SettingsForm.cs` 显示三个独立勾选项，保存后由控制器应用；重复打开复用同一窗口。
 `SettingsStore` 使用 `JsonStore` 原子保存设置，`StateStore` 使用相同实现保存窗口、镜头和图标。
 旧会话缺少 `DesktopIcons` 时默认为空；关闭图标选项不丢弃已保存位置。
+旧设置缺少 `EdgePanning` 时默认关闭。`Core/Viewport/EdgePan.cs` 根据时间与鼠标位置计算
+屏幕像素位移，处理 12px 热区、250ms 停留、斜向归一化和 50ms 最大时间步长。
+控制器的既有 16ms 轮询采样主屏工作区边缘，交互期间暂停；通过 `CanvasViewport.Drag`
+换算缩放位移并应用有限或无限边界。它不自动进入 Ctrl 画布模式，不安装新的全局钩子。
 
 `DesktopShell` 通过 `IShellWindows → IShellBrowser → IFolderView2` 读取实际桌面项和位置，
 包括文件、快捷方式及虚拟 Shell 项目；通过 Explorer 的 ShellExecute 打开项目。

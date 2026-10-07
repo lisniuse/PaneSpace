@@ -42,6 +42,7 @@ public sealed partial class CanvasController
                 return "设置保存失败，请检查本地数据目录的写入权限。";
             }
             _settings = next;
+            _edgePan?.Reset(); _edgePanning = false;
             if (!next.DesktopIcons) DisableDesktopIcons();
             if (previous.InfiniteCanvas && !next.InfiniteCanvas) ClampContentToFinite();
             var camera = Viewport.Clamp(); _panX = camera.PanX; _panY = camera.PanY;

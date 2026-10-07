@@ -22,6 +22,8 @@ click a preview to return to 100% and interact with the original application.
 ## Features
 
 - **Drag to pan:** move across the canvas without rearranging individual windows.
+- **Optional edge panning:** move the pointer to a working-area edge and pause briefly
+  to scroll the camera without Ctrl. Disabled by default and configurable in settings.
 - **Optional infinite canvas:** keep panning in any direction, with a minimap
   that fits the camera and all content. Automatic arrangement still uses nine screens.
 - **Optional desktop icons:** include desktop files, shortcuts, folders and Shell
@@ -45,8 +47,9 @@ click a preview to return to 100% and interact with the original application.
 
 ## Build and run
 
-Development requires **Windows, PowerShell 7, and the .NET 10 SDK**. Running the
-published app requires the **.NET 10 Windows Desktop Runtime (x64)**.
+Development requires **Windows, PowerShell 7, and the .NET 10 SDK**. The production
+app is a **self-contained Windows x64 single EXE**, including the .NET runtime.
+Copy `dist/PaneSpace.exe` to run it; no separate runtime installation is needed.
 
 ```powershell
 git clone https://github.com/lisniuse/PaneSpace.git
@@ -60,7 +63,7 @@ manage elevated application windows. It runs in the tray rather than opening a
 main window.
 
 Publishing builds and checks the solution, stops running PaneSpace / legacy
-CamCanvas processes, and always writes to **`dist`**. `build.cmd` provides the same
+CamCanvas processes, and always writes one **`dist/PaneSpace.exe`**. `build.cmd` provides the same
 publishing entry point. Build output is excluded from this repository.
 
 ## Controls
@@ -79,7 +82,8 @@ publishing entry point. Build output is excluded from this repository.
 | Drag a canvas desktop icon | Reposition that icon and save its world position |
 | Double-click a canvas desktop icon | Open the file, folder or shortcut |
 | Click a purple minimap icon block | Center the camera on that desktop icon |
-| Tray → 设置… | Configure infinite canvas and desktop icons |
+| Tray → 设置… | Configure infinite canvas, desktop icons and edge panning |
+| Pointer near a working-area edge, with edge panning enabled | Scroll the camera after a short dwell, without Ctrl |
 | 全部搬回中心屏 | Move the window group back to the center screen |
 | 复位 button / Tray → 画布归位 | Reset to 100% and zero camera offset |
 | Tray → Exit | Save the canvas layout and bring its windows back onto the screens |
@@ -102,7 +106,7 @@ manually resizing it returns to ordinary window centering.
 
 ## Settings
 
-Right-click the tray icon, choose **设置…**, and save either or both independent options:
+Right-click the tray icon, choose **设置…**, and save any combination of independent options:
 
 - **无限画布 — Infinite canvas:** remove the nine-screen camera boundary. Turning
   it off brings content outside the finite canvas back inside its bounds.
@@ -110,8 +114,13 @@ Right-click the tray icon, choose **设置…**, and save either or both indepen
 - **桌面图标 — Desktop icons:** replace the native desktop icon view with canvas
   icons while PaneSpace runs. Icons follow pan and zoom, keep their saved positions,
   and support dragging and double-click opening. Added or removed items are refreshed.
+- **屏幕边缘平移 — Edge panning:** hold the pointer within 12px of a primary-screen
+  working-area edge for 250ms to scroll in that direction, including diagonally.
+  The bottom edge sits above the taskbar. Scrolling pauses while dragging, pressing
+  mouse buttons, using menus or the taskbar, and while settings are open. It works
+  in native and zoomed views and respects the finite canvas boundary.
 
-Both options start disabled. Turning desktop icons off or exiting restores the
+All options start disabled; older settings leave edge panning disabled. Turning desktop icons off or exiting restores the
 original Windows desktop visibility and layout. A recovery companion also restores
 the native view after an abrupt app exit. Desktop files are not moved or renamed.
 
@@ -133,6 +142,17 @@ Additional checks cover unbounded cameras, dynamic overview bounds, desktop icon
 input and rendering, settings controls, atomic persistence, and legacy layout data.
 Screen-tiling checks cover margins, finite overflow, additional infinite rows,
 maximized windows, application size constraints and toolbar input during zoom.
+Edge-panning checks cover directions, dwell timing, pauses, diagonal speed, zoom
+and finite/infinite bounds. CI also publishes and boots the real production EXE.
+
+To verify a published single EXE without moving your application windows:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-package.ps1
+```
+
+Accept the Windows administrator prompt. The check verifies bundled UI resources,
+Core logic, DWM previews and the recovery companion, then exits.
 
 ```text
 PaneSpace/

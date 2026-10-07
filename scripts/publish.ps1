@@ -3,7 +3,8 @@
 param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Release',
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [switch]$VerifyPackage
 )
 
 $ErrorActionPreference = 'Stop'
@@ -28,14 +29,22 @@ try {
             throw 'Desktop icon recovery is still running. Wait for it to finish before publishing.'
         }
     }
-    & dotnet publish (Join-Path $projectRoot 'src/Desktop/PaneSpace.csproj') -c $Configuration -r win-x64 --self-contained false -p:PublishSingleFile=false -o $publishDirectory
+    & dotnet publish (Join-Path $projectRoot 'src/Desktop/PaneSpace.csproj') -c $Configuration -p:PublishProfile=Prod -p:DebugType=embedded -o $publishDirectory
     if ($LASTEXITCODE -ne 0) { throw "Publish failed (exit $LASTEXITCODE)." }
     foreach ($legacyFile in @('CamCanvas.exe', 'CamCanvas.dll', 'CamCanvas.pdb', 'CamCanvas.deps.json',
-        'CamCanvas.runtimeconfig.json', 'CamCanvas.Core.dll', 'CamCanvas.Core.pdb')) {
+        'CamCanvas.runtimeconfig.json', 'CamCanvas.Core.dll', 'CamCanvas.Core.pdb',
+        'PaneSpace.dll', 'PaneSpace.pdb', 'PaneSpace.deps.json', 'PaneSpace.runtimeconfig.json',
+        'PaneSpace.Core.dll', 'PaneSpace.Core.pdb')) {
         $legacyPath = Join-Path $publishDirectory $legacyFile
         if (Test-Path -LiteralPath $legacyPath -PathType Leaf) { Remove-Item -LiteralPath $legacyPath -Force }
     }
-    Write-Host "Published: $(Join-Path $publishDirectory 'PaneSpace.exe')"
+    $publishedExe = Join-Path $publishDirectory 'PaneSpace.exe'
+    $publishedFiles = @(Get-ChildItem -LiteralPath $publishDirectory -File -Force)
+    if ($publishedFiles.Count -ne 1 -or $publishedFiles[0].Name -ne 'PaneSpace.exe') {
+        throw 'The publish directory contains unexpected files; single-executable output could not be confirmed.'
+    }
+    Write-Host "Published: $publishedExe ($([Math]::Round($publishedFiles[0].Length / 1MB, 1)) MB, self-contained single EXE)"
+    if ($VerifyPackage) { & (Join-Path $PSScriptRoot 'verify-package.ps1') -Path $publishedExe }
 }
 finally {
     Pop-Location

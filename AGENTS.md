@@ -55,7 +55,10 @@ rtk pwsh -NoProfile -File scripts/publish.ps1
 - 文档修改检查内容、链接和 `git diff --check` 即可。
 - 自动回归使用独立测试窗口，不移动用户现有的应用窗口。
 - 发布固定到 **`dist`**，不要创建 `dist-*` 目录。入口是 `dist/PaneSpace.exe`。
-- 发布为 `win-x64`、依赖运行时的多文件应用；不要擅自启用 `PublishSingleFile`。
+- 生产发布使用 `Properties/PublishProfiles/Prod.pubxml`：`win-x64`、自包含单 EXE，
+  内置运行时、原生库和图标；不启用裁剪。发布脚本清理已知的旧 DLL/PDB/JSON，确认仅输出 `PaneSpace.exe`。
+- `scripts/verify-package.ps1` 验证真实单 EXE 的提权启动、Core/UI/图标/DWM 及恢复子进程。
+  此模式只创建测试窗口，不启动画布控制器、不移动用户窗口或读写其布局。
 - 用户已允许结束占用发布文件的 PaneSpace / 旧名 CamCanvas 进程；不要扩大到无关进程。
 - 普通退出走托盘菜单并收回窗口；强制结束进程不会执行退出收尾。
 
@@ -64,6 +67,10 @@ rtk pwsh -NoProfile -File scripts/publish.ps1
 - 默认画布为主屏大小的 **3 × 3**；设置可开启无限镜头，取消平移边界。
   **无限模式的自动排列仍固定在 3×3 九屏区域，不扩大排列范围。**
   Ctrl 画布模式下滚轮以鼠标为锚点缩放 **25%–200%**。
+- “屏幕边缘平移”默认关闭，设置开启后无需按 Ctrl；鼠标在主屏工作区边缘 12px 内
+  停留 250ms 后平移，速度 600 屏幕像素/秒、角落速度归一化。单次时间步长最多 50ms。
+  拖动/鼠标按键、原生菜单、设置、任务栏交互期间暂停；离开边缘或暂停后重新计时。
+  使用现有视口处理缩放和边界；开始一次边缘移动前同步手动窗口位置，达到边界时不重复写存档。
 - 100% 移动真实窗口；其他比例通过 DWM 实时预览，禁止通过调整原窗口尺寸模拟缩放。
   松开 Ctrl 或点击预览回到 100%，保持镜头中心并限制在画布边界内。
 - 复位按钮和托盘“画布归位”同时复位比例和偏移；Esc 不触发归位，不监听全局 Esc。
@@ -94,7 +101,7 @@ rtk pwsh -NoProfile -File scripts/publish.ps1
   不要改回 `Graphics.FromHdc` 绘制不透明色块，以免小地图产生点击穿透。
 
 布局文件为 `%LOCALAPPDATA%/PaneSpace/state.json`，首次启动兼容旧 CamCanvas 存档。
-独立设置为同目录的 `settings.json`，默认关闭无限画布及桌面图标；设置不互斥。
+独立设置为同目录的 `settings.json`，默认关闭无限画布、桌面图标及屏幕边缘平移；设置不互斥。
 图标位置存入布局的 `DesktopIcons` 字段；禁用图标期间仍保留这些数据。
 保持既有 JSON 字段兼容；需要迁移时明确处理已有布局。
 

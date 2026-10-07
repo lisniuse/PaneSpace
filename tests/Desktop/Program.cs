@@ -298,6 +298,45 @@ internal static partial class Program
             Call("PanTo", 100000f, -100000f);
             Check((float)Get("_panX")! == 640 && (float)Get("_panY")! == -480,
                 "disabling infinite mode restores the finite camera bounds");
+            Call("PanTo", 0f, 0f);
+            var edgeArea = new Rectangle(0, 0, 640, 440);
+            var edgePoint = new Point(639, 200);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 1000L, false);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 1300L, false);
+            Check((float)Get("_panX")! == 0, "edge panning is disabled by default");
+            Set("_settings", new AppSettings(EdgePanning: true));
+            var beforeEdge = Bounds(source.Handle);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 2000L, false);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 2300L, false);
+            Check((float)Get("_panX")! == -30 && Bounds(source.Handle).X == beforeEdge.X - 30,
+                "edge panning moves native windows without Ctrl or entering canvas mode");
+            Call("ProcessEdgePan", edgePoint, edgeArea, 2316L, true);
+            Check((float)Get("_panX")! == -30, "interacting with windows, settings or taskbar pauses edge movement");
+            Call("ProcessEdgePan", edgePoint, edgeArea, 2332L, false);
+            Check((float)Get("_panX")! == -30, "resuming after an interaction requires a fresh dwell delay");
+            Call("PanTo", -640f, 0f);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 2632L, false);
+            Check((float)Get("_panX")! == -640, "edge movement respects finite canvas boundaries");
+            Set("_settings", new AppSettings(InfiniteCanvas: true, EdgePanning: true));
+            Call("ProcessEdgePan", edgePoint, edgeArea, 2648L, false);
+            Check((float)Get("_panX")! < -640, "infinite mode allows edge movement beyond nine screens");
+            Call("PanTo", 0f, 0f); Call("SetCanvasMode", true);
+            Call("ZoomAt", new Point(200, 200), -120);
+            var physical = Bounds(source.Handle);
+            float edgePan = (float)Get("_panX")!;
+            Call("ProcessEdgePan", new Point(320, 0), edgeArea, 3000L, false);
+            Call("ProcessEdgePan", new Point(320, 0), edgeArea, 3300L, false);
+            Check(Bounds(source.Handle) == physical && (float)Get("_panX")! == edgePan && (float)Get("_panY")! > 0,
+                "scaled edge movement pans the preview while native windows keep their bounds");
+            Call("SetCanvasMode", false); Call("PanTo", 0f, 0f);
+            var worldBeforeEdges = logical[source.Handle];
+            Call("ProcessEdgePan", edgePoint, edgeArea, 4000L, false);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 4300L, false);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 4316L, false);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 4332L, true);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 4348L, false);
+            Call("ProcessEdgePan", edgePoint, edgeArea, 4648L, false);
+            Check(logical[source.Handle] == worldBeforeEdges, "repeated fractional edge-scroll sessions preserve world positions without rounding drift");
         }
         finally
         {
@@ -374,7 +413,7 @@ internal static partial class Program
         string settingsPath = Path.Combine(root, "settings.json"), statePath = Path.Combine(root, "state.json");
         try
         {
-            var settings = new AppSettings(true, true);
+            var settings = new AppSettings(true, true, true);
             var state = new SessionState { PanX = -90000, DesktopIcons = new() { new("fixture:shortcut", 90500, 70000) } };
             Check(JsonStore.Save(settingsPath, settings) && JsonStore.Load<AppSettings>(settingsPath) == settings,
                 "settings survive atomic disk save and reload");
@@ -391,10 +430,12 @@ internal static partial class Program
         AppSettings? saved = null;
         using var form = new SettingsForm(new AppSettings(), settings => { saved = settings; return null; });
         form.Show(); Application.DoEvents();
-        Check(!form.InfiniteCanvas.Checked && !form.DesktopIcons.Checked, "settings preserve the default disabled options");
+        Check(!form.InfiniteCanvas.Checked && !form.DesktopIcons.Checked && !form.EdgePanning.Checked,
+            "settings preserve all default disabled options");
         form.InfiniteCanvas.Checked = true;
-        Check(!form.DesktopIcons.Checked, "infinite canvas and desktop icons are independent choices");
+        Check(!form.DesktopIcons.Checked && !form.EdgePanning.Checked, "all three settings are independent choices");
         form.DesktopIcons.Checked = true;
+        form.EdgePanning.Checked = true;
         if (screenshot)
         {
             using var bitmap = new Bitmap(form.Width, form.Height);
@@ -403,7 +444,7 @@ internal static partial class Program
             Console.WriteLine("Settings screenshot: " + path);
         }
         form.SaveButton.PerformClick();
-        Check(saved == new AppSettings(true, true) && !form.Visible, "saving settings applies both choices and closes the window");
+        Check(saved == new AppSettings(true, true, true) && !form.Visible, "saving settings applies all three choices and closes the window");
     }
     private static void CheckDesktopLease()
     {

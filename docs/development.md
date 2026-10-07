@@ -4,7 +4,7 @@
 
 - Windows，PowerShell 7，.NET 10 SDK。
 - `global.json` 以 SDK 10.0.300 为基线，允许同一主版本的更新 feature band。
-- 发布物是 `win-x64`、依赖运行时的普通多文件应用，需要 .NET 10 Windows Desktop Runtime。
+- 生产发布物是 `win-x64` 自包含单 EXE，内置 .NET 运行时及原生依赖。
 - 程序 manifest 请求管理员权限，并启用 PerMonitorV2 DPI。
 
 `Directory.Build.props` 统一开启 nullable、隐式 using 和警告视为错误。
@@ -31,6 +31,11 @@ pwsh -NoProfile -File scripts/publish.ps1
 
 # 仅在本次版本已经验证过时跳过检查
 pwsh -NoProfile -File scripts/publish.ps1 -SkipTests
+
+# 发布后检查真实生产单 EXE 的提权启动和内置依赖
+pwsh -NoProfile -File scripts/verify-package.ps1
+# 也可以与发布一起运行
+pwsh -NoProfile -File scripts/publish.ps1 -VerifyPackage
 ```
 
 脚本按自身位置解析项目根目录，从其他工作目录调用也会使用本项目的 SDK 策略和
@@ -38,8 +43,16 @@ pwsh -NoProfile -File scripts/publish.ps1 -SkipTests
 发布会停止 PaneSpace 和旧名 CamCanvas 进程；新程序需要手动启动。
 桌面图标接管时，发布只结束主程序，保留恢复伴随进程并等待它恢复图标、退出后再覆盖文件。
 
-不启用 `PublishSingleFile`：本项目此前实测单文件 apphost 在提权启动时会卡住。
-发布成功后清理 `dist` 中旧产品名的程序文件，保留唯一入口 `PaneSpace.exe`。
+生产配置位于 `src/Desktop/Properties/PublishProfiles/Prod.pubxml`：
+`SelfContained`、`PublishSingleFile`、`IncludeNativeLibrariesForSelfExtract` 均开启，
+不开启裁剪或 ReadyToRun。符号嵌入程序集，发布成功后清理已知旧 DLL/PDB/JSON，
+确认 `dist` 仅有 `PaneSpace.exe`。运行时原生库由 .NET 提取至用户临时缓存。
+参考[微软单文件部署说明](https://learn.microsoft.com/en-us/dotnet/core/deploying/single-file/overview)。
+
+此前记录过单文件提权启动卡住，因此发布检查运行实际 EXE，确认提权、内置图标/设置、
+Core、DWM 缩略图和同一 EXE 的恢复子进程。`--verify-package` 在正常控制器启动前处理，
+只创建独立测试窗口，不加载或保存用户布局，不操作真实桌面图标。
+本机非管理员终端会触发 Windows 权限提示；CI 在管理员 Windows runner 中运行。
 
 ## 图标与 Logo
 
@@ -62,6 +75,8 @@ pwsh -NoProfile -File scripts/publish.ps1 -SkipTests
 小地图点击、任务栏唤起、最小化恢复以及退出归位。
 默认检查还覆盖无限镜头、图标拖动/渲染、设置控件及临时目录中的存档读写。
 默认检查不会隐藏实际桌面图标。
+边缘平移覆盖四向/斜向、停留延迟、暂停后重新计时、工作区边界、长帧时间限制、
+默认关闭和旧设置兼容，以及原生窗口/缩放预览中的镜头移动。
 
 整屏平铺使用独立原生窗口和有最大尺寸限制的 WinForms 窗口，检查上/侧边 28px、底部 80px、
 最大化还原、缩放中的按钮点击、有限超限时完整保留布局、无限模式续行、

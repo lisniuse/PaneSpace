@@ -172,10 +172,46 @@ Run("Legacy layouts and persisted settings and desktop positions remain compatib
     Assert(restored.PanX == state.PanX && restored.DesktopIcons.SequenceEqual(state.DesktopIcons), "Far-away icon positions survive serialization.");
     foreach (bool infinite in new[] { false, true })
         foreach (bool icons in new[] { false, true })
-        {
-            var settings = new AppSettings(infinite, icons);
-            Assert(JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(settings)) == settings, "Settings are independent and persistent.");
-        }
+            foreach (bool edges in new[] { false, true })
+            {
+                var settings = new AppSettings(infinite, icons, edges);
+                Assert(JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(settings)) == settings, "Settings are independent and persistent.");
+            }
+    Assert(!JsonSerializer.Deserialize<AppSettings>("{\"InfiniteCanvas\":true,\"DesktopIcons\":true}")!.EdgePanning,
+        "Existing settings must leave edge panning disabled.");
+});
+Run("Edge panning follows working-area edges and uses a constant diagonal speed", () =>
+{
+    var area = new Rectangle(100, 50, 640, 400);
+    foreach (var (cursor, expected) in new[]
+    {
+        (new Point(100, 250), new PointF(30, 0)), (new Point(739, 250), new PointF(-30, 0)),
+        (new Point(420, 50), new PointF(0, 30)), (new Point(420, 449), new PointF(0, -30))
+    })
+    {
+        var edge = new EdgePan();
+        Assert(edge.Step(cursor, area, 1000, true) == PointF.Empty, "Entering an edge must not pan immediately.");
+        Near(edge.Step(cursor, area, 1300, true), expected);
+    }
+    var corner = new EdgePan(); corner.Step(area.Location, area, 1000, true);
+    var delta = corner.Step(area.Location, area, 1300, true);
+    Assert(Math.Abs(MathF.Sqrt(delta.X * delta.X + delta.Y * delta.Y) - 30) < .002f,
+        "Corners must not scroll faster than individual edges.");
+});
+Run("Edge panning waits, pauses, ignores other screens and caps delayed ticks", () =>
+{
+    var area = new Rectangle(0, 0, 640, 400);
+    var pointer = new Point(639, 200);
+    var edge = new EdgePan(); edge.Step(pointer, area, 1000, true);
+    Assert(edge.Step(pointer, area, 1249, true) == PointF.Empty, "Dwell delay.");
+    Near(edge.Step(pointer, area, 1265, true), new PointF(-9.6f, 0));
+    Near(edge.Step(pointer, area, 10000, true), new PointF(-30, 0));
+    Assert(edge.Step(pointer, area, 10016, false) == PointF.Empty, "Disabled or paused movement stops immediately.");
+    Assert(edge.Step(pointer, area, 10032, true) == PointF.Empty, "Resuming requires a new dwell.");
+    Assert(edge.Step(new Point(640, 200), area, 11000, true) == PointF.Empty, "Other monitor ignored.");
+    Assert(edge.Step(new Point(639, 425), area, 11016, true) == PointF.Empty, "Taskbar strip ignored.");
+    Assert(edge.Step(new Point(300, 200), area, 11032, true) == PointF.Empty, "Interior ignored.");
+    Assert(edge.Step(pointer, area, 11048, true) == PointF.Empty, "Moving back into the edge requires a new dwell.");
 });
 Console.WriteLine($"All {passed} core checks passed.");
 

@@ -72,6 +72,10 @@ public sealed partial class CanvasController
         {
             if (!Win32.IsWindow(hwnd) || Win32.IsIconic(hwnd) || _parked?.Contains(hwnd) == true) continue;
             var p = RealPos(hwnd);
+            var logical = _logical[hwnd];
+            // Native positions are rounded. Repeated timed edge-scroll sessions must not
+            // adopt that rounding as a manual move and gradually drift the world layout.
+            if (p.X == Math.Round((double)logical.X + _panX) && p.Y == Math.Round((double)logical.Y + _panY)) continue;
             _logical[hwnd] = (p.X - (int)_panX, p.Y - (int)_panY);
         }
     }

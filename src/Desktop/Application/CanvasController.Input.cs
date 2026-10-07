@@ -45,6 +45,7 @@ public sealed partial class CanvasController
                 PanBy(dx, dy);
             }
             ProcessTaskbarFocus(Win32.GetForegroundWindow(), Environment.TickCount64);
+            PollEdgePan(Environment.TickCount64);
             if (PreviewActive && Environment.TickCount64 - _previewRefreshed >= 100) RefreshPreview();
             if (_desktopIcons != null && Environment.TickCount64 - _iconsRefreshed >= 2000) RefreshDesktopIcons();
         };
