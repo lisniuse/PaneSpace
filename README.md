@@ -29,7 +29,8 @@ implemented yet.
 - **Layout persistence:** remember the camera and window positions across sessions.
 - **Tray controls:** reset the camera or exit from the PaneSpace tray icon.
 - **Safe exit:** save the canvas layout, then return its windows to visible screen
-  work areas. Minimized windows stay minimized and receive reachable restore positions.
+  work areas, along with their visible dialogs. Minimized windows stay minimized
+  and receive reachable restore positions.
 
 ## Build and run
 

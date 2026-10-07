@@ -70,6 +70,20 @@ internal static class Program
             Check(Bounds(oversized).Location == work.Location, "oversized windows regain a visible title bar");
             Check(Bounds(oversized).Size == oversizedSize, "oversized windows are not resized");
 
+            var owner = MakeWindow();
+            var dialog = MakeWindow(owner);
+            var nestedDialog = MakeWindow(dialog);
+            var unrelated = MakeWindow();
+            Move(owner, new Point(work.Left - 8000, work.Top - 8000));
+            Move(dialog, new Point(work.Left - 7800, work.Top - 7800));
+            Move(nestedDialog, new Point(work.Left - 7600, work.Top - 7600));
+            Move(unrelated, new Point(work.Left - 7400, work.Top - 7400));
+            var unrelatedBefore = Bounds(unrelated);
+            WindowRecovery.ReturnToScreens(new[] { owner });
+            Check(work.Contains(Bounds(dialog)) && work.Contains(Bounds(nestedDialog)),
+                "owned and nested dialogs return with their canvas owner");
+            Check(Bounds(unrelated) == unrelatedBefore, "unrelated windows are left alone");
+
             var closed = MakeWindow();
             Win32.DestroyWindow(closed);
             WindowRecovery.ReturnToScreens(new[] { closed, IntPtr.Zero });
@@ -82,10 +96,10 @@ internal static class Program
                 if (Win32.IsWindow(hwnd)) Win32.DestroyWindow(hwnd);
         }
 
-        IntPtr MakeWindow()
+        IntPtr MakeWindow(IntPtr owner = default)
         {
             var hwnd = Win32.CreateWindowEx(0, "STATIC", "PaneSpace recovery test fixture", unchecked((int)0x90cf0000),
-                -8000, -8000, 320, 220, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+                -8000, -8000, 320, 220, owner, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
             Check(hwnd != IntPtr.Zero, "create isolated window fixture");
             fixtures.Add(hwnd);
             return hwnd;

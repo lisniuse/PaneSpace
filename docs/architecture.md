@@ -36,7 +36,7 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 图标，供托盘使用。托盘与程序文件图标共用 `assets/branding/icon.ico`。
 
 正常退出时先保存画布状态，再通过 `Platform/Windows/WindowRecovery.cs` 将受管理的
-窗口收回最近显示器的工作区。不会把收回后的屏幕坐标写入画布存档；下次启动仍恢复
+窗口及其可见的所属对话框收回最近显示器的工作区。不会把收回后的屏幕坐标写入画布存档；下次启动仍恢复
 原有画布布局。最小化窗口通过 `WINDOWPLACEMENT` 修正还原坐标，保留最小化及
 还原到最大化的标志。普通窗口保持尺寸、层级和焦点；超大窗口确保左上角可见。
 退出处理可重复调用；消息循环结束后的 `ApplicationContext.Dispose` 也执行相同收尾。

@@ -9,7 +9,17 @@ public static class WindowRecovery
 {
     public static void ReturnToScreens(IEnumerable<IntPtr> windows)
     {
-        foreach (var hwnd in windows)
+        var roots = windows.Where(Win32.IsWindow).ToHashSet();
+        if (roots.Count == 0) return;
+        var group = new HashSet<IntPtr>(roots);
+        // A modal dialog opened over an off-screen owner can otherwise remain unreachable.
+        Win32.EnumWindows((hwnd, _) =>
+        {
+            if (Win32.IsWindowVisible(hwnd) && roots.Contains(Win32.GetAncestor(hwnd, Win32.GA_ROOTOWNER)))
+                group.Add(hwnd);
+            return true;
+        }, IntPtr.Zero);
+        foreach (var hwnd in group)
         {
             if (!Win32.IsWindow(hwnd)) continue;
             var screen = Screen.FromHandle(hwnd);
@@ -25,7 +35,9 @@ public static class WindowRecovery
                 if (Win32.GetWindowPlacement(hwnd, ref placement))
                 {
                     // WINDOWPLACEMENT uses workspace coordinates, not SetWindowPos screen coordinates.
-                    int dx = work.Left - screen.Bounds.Left, dy = work.Top - screen.Bounds.Top;
+                    bool toolWindow = (Win32.GetWindowLongPtr(hwnd, Win32.GWL_EXSTYLE).ToInt64() & Win32.WS_EX_TOOLWINDOW) != 0;
+                    int dx = toolWindow ? 0 : work.Left - screen.Bounds.Left;
+                    int dy = toolWindow ? 0 : work.Top - screen.Bounds.Top;
                     var normal = placement.NormalPosition;
                     var position = ClampPosition(new Rectangle(normal.Left + dx, normal.Top + dy,
                         normal.Right - normal.Left, normal.Bottom - normal.Top), work);
