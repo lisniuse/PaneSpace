@@ -26,7 +26,7 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 | `CanvasController.Windows.cs` | 窗口登记、事件接收、逻辑坐标重同步 |
 | `CanvasController.Actions.cs` | 平移、瀑布流、归中、小地图聚焦 |
 | `CanvasController.Taskbar.cs` | 任务栏点击识别与恢复后的延迟定位 |
-| `CanvasController.Input.cs` | Ctrl/Esc 轮询、鼠标消息、命中检测 |
+| `CanvasController.Input.cs` | Ctrl 轮询、鼠标消息、命中检测 |
 | `CanvasController.Zoom.cs` | 缩放镜头、实时预览协调及回到原生视图 |
 | `CanvasController.Rendering.cs` | 网格、按钮、小地图、共享 DIB 缓冲与呈现 |
 | `CanvasController.Session.cs` | 会话组装、窗口身份匹配和恢复 |

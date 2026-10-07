@@ -67,11 +67,12 @@ publishing entry point. Build output is excluded from this repository.
 | Activate a window from the taskbar | Follow the restored or activated window |
 | 自动排列(全画布) | Arrange visible, non-minimized windows across the canvas |
 | 全部搬回中心屏 | Move the window group back to the center screen |
-| Esc / 复位 | Reset to 100% and zero camera offset |
+| 复位 button / Tray → 画布归位 | Reset to 100% and zero camera offset |
 | Tray → Exit | Save the canvas layout and bring its windows back onto the screens |
 
 The current toolbar and tray menus use Chinese labels. If an arrangement cannot
 fit all eligible windows, PaneSpace keeps the existing layout and shows a notice.
+Esc does not reset the camera or move windows; use the reset button or tray menu.
 
 ## Development
 

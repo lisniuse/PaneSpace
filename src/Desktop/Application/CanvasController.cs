@@ -17,7 +17,7 @@ namespace PaneSpace.Application;
 /// via UpdateLayeredWindow per-pixel alpha — no z-order fights, and alpha=0 areas
 /// are naturally click-through so no WS_EX_TRANSPARENT toggling either.
 /// On the bare desktop, hold Ctrl: drag to slide all windows, hover/click the
-/// minimap to jump the camera, buttons for arrange/gather/reset. Esc = reset.
+/// minimap to jump the camera, buttons for arrange/gather/reset.
 /// </summary>
 public sealed partial class CanvasController : IDisposable
 {
@@ -59,7 +59,7 @@ public sealed partial class CanvasController : IDisposable
     private IntPtr _hoverHwnd;
     private int _ulwErrCount;
 
-    private static readonly string[] Buttons = { "自动排列(全画布)", "全部搬回中心屏", "复位(Esc)" };
+    private static readonly string[] Buttons = { "自动排列(全画布)", "全部搬回中心屏", "复位" };
 
     private Cursor? _grabCursor;
     private Cursor GrabCursor => _grabCursor ??= GrabCursorFactory.Create();
@@ -86,10 +86,10 @@ public sealed partial class CanvasController : IDisposable
         {
             Icon = _trayIcon,
             Visible = true,
-            Text = "PaneSpace（桌面按 Ctrl：拖动平移、滚轮缩放，Esc 复位）",
+            Text = "PaneSpace（桌面按 Ctrl：拖动平移、滚轮缩放）",
         };
         var menu = new WinForms.ContextMenuStrip();
-        var home = new WinForms.ToolStripMenuItem("画布归位 (Esc)");
+        var home = new WinForms.ToolStripMenuItem("画布归位");
         home.Click += (_, _) => ResetPan();
         menu.Items.Add(home);
         var quit = new WinForms.ToolStripMenuItem("退出 PaneSpace（收回窗口）");

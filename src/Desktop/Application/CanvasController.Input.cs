@@ -38,7 +38,6 @@ public sealed partial class CanvasController
             else if (!ctrl && _lastCtrl && !_dragging)
                 SetCanvasMode(false);
             _lastCtrl = ctrl;
-            if ((Win32.GetAsyncKeyState(Win32.VK_ESCAPE) & 0x8000) != 0) ResetPan();
             if ((_dragAccX != 0 || _dragAccY != 0) && _dragging)
             {
                 float dx = _dragAccX, dy = _dragAccY;
