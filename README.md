@@ -33,7 +33,8 @@ click a preview to return to 100% and interact with the original application.
   and the camera follows it, within the canvas bounds.
 - **Masonry arrangement:** pack mixed-size windows into the lowest available space,
   allowing wide windows to span columns without resizing them.
-- **Screen tiling:** resize each window to one primary-screen cell with 28px margins,
+- **Screen tiling:** resize each window to one primary-screen cell, reserving 28px
+  at the top and sides and 80px at the bottom for the taskbar,
   then arrange the cells in three columns. Infinite mode adds rows beyond nine windows.
 - **Layout persistence:** remember the camera, window positions, icon positions,
   and settings across sessions.
@@ -74,7 +75,7 @@ publishing entry point. Build output is excluded from this repository.
 | Click a minimap window block | Center and activate that window |
 | Activate a window from the taskbar | Follow the restored or activated window |
 | 自动排列(全画布) | Arrange visible, non-minimized windows inside the 3 × 3 area, in either mode |
-| 整屏平铺 | Resize and center each window in a screen cell, with 28px margins on all sides |
+| 整屏平铺 | Fit each window in a screen cell: 28px top/side margins, 80px bottom reservation |
 | Drag a canvas desktop icon | Reposition that icon and save its world position |
 | Double-click a canvas desktop icon | Open the file, folder or shortcut |
 | Click a purple minimap icon block | Center the camera on that desktop icon |
@@ -88,13 +89,16 @@ fit all eligible windows, PaneSpace keeps the existing layout and shows a notice
 Esc does not reset the camera or move windows; use the reset button or tray menu.
 
 **整屏平铺 — Screen tiling** returns to 100% and centers the first cell in the
-viewport. Adjacent windows have a 56px gap, since both cells contribute a 28px
-margin. Finite mode supports up to nine windows and preserves the entire layout
+viewport. Each cell reserves 28px at the top and sides and 80px below for the
+taskbar. Adjacent windows have a 56px horizontal gap and a 108px vertical gap.
+Finite mode supports up to nine windows and preserves the entire layout
 if that limit is exceeded; infinite mode continues in additional rows. Maximized
 windows are restored before resizing; hidden and minimized windows are excluded.
-Applications with size constraints keep their accepted size, centered in the cell,
+Applications with size constraints keep their accepted size, centered in the cell's available area,
 and a tray notice reports constrained or unsuccessful adjustments. Desktop icon
 positions are unchanged. The masonry button retains its original behavior.
+Following a tiled window from the minimap or taskbar keeps this reservation;
+manually resizing it returns to ordinary window centering.
 
 ## Settings
 

@@ -6,18 +6,18 @@ using PaneSpace.Core.Sessions;
 using System.Text.Json;
 
 int passed = 0;
-Run("Screen tiles center each window with 28px margins and adjacent screen cells", () =>
+Run("Screen tiles reserve 28px above and 80px below in adjacent screen cells", () =>
 {
     var screen = new Size(1920, 1080);
     Assert(ScreenTileLayout.TryArrange(9, screen, false, out var tiles), "Nine screen tiles should fit.");
-    Assert(tiles.Length == 9 && tiles[0] == new Rectangle(-1892, -1052, 1864, 1024), "First tile geometry.");
+    Assert(tiles.Length == 9 && tiles[0] == new Rectangle(-1892, -1052, 1864, 972), "First tile geometry.");
     var canvas = new Rectangle(-1920, -1080, 5760, 3240);
     foreach (var tile in tiles) Assert(canvas.Contains(tile), "Every tile must stay in the finite canvas.");
-    Assert(tiles[1].X - tiles[0].Right == 56 && tiles[3].Y - tiles[0].Bottom == 56,
-        "Adjacent cells each contribute their own 28px margin.");
+    Assert(tiles[1].X - tiles[0].Right == 56 && tiles[3].Y - tiles[0].Bottom == 108,
+        "Adjacent cells leave 56px horizontally and 108px vertically.");
     var camera = new CanvasViewport(1920, 1080, 1920, 1080);
     Near(camera.ToScreen(new PointF(tiles[0].X + tiles[0].Width / 2f, tiles[0].Y + tiles[0].Height / 2f)),
-        new PointF(960, 540));
+        new PointF(960, 514));
 });
 Run("Screen tiles reject finite overflow and extend the infinite grid", () =>
 {
@@ -27,6 +27,7 @@ Run("Screen tiles reject finite overflow and extend the infinite grid", () =>
         tiles.Length == 100 && tiles[9].Location == new Point(-612, 988), "Infinite tiles continue after the ninth cell.");
     Assert(ScreenTileLayout.TryArrange(0, new Size(640, 480), false, out var empty) && empty.Length == 0, "Empty layout.");
     Assert(!ScreenTileLayout.TryArrange(1, new Size(56, 480), true, out _), "Margins must leave positive content.");
+    Assert(!ScreenTileLayout.TryArrange(1, new Size(640, 108), true, out _), "Taskbar reservation must leave positive height.");
     Assert(!ScreenTileLayout.TryArrange(-1, new Size(640, 480), true, out _), "Negative count.");
     Assert(!ScreenTileLayout.TryArrange(int.MaxValue, new Size(640, 480), true, out _), "Coordinate overflow.");
 });

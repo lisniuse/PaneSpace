@@ -49,6 +49,7 @@ public sealed partial class CanvasController
                 if (Win32.IsWindow(hwnd)) break;      // fake-destroy broadcast
                 _logical.Remove(hwnd);
                 _parked?.Remove(hwnd);
+                _tiledWindows?.Remove(hwnd);
                 if (_pendingTaskbarFocus == hwnd) _pendingTaskbarFocus = IntPtr.Zero;
                 break;
         }

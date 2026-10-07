@@ -13,6 +13,7 @@ namespace PaneSpace.Application;
 
 public sealed partial class CanvasController
 {
+    private Dictionary<IntPtr, (Point Offset, Size Size)>? _tiledWindows;
     // ---- pan / actions ---------------------------------------------------------------
 
     private void ApplyPan()
@@ -43,7 +44,7 @@ public sealed partial class CanvasController
                 Win32.SWP_NOSIZE_ | Win32.SWP_NOZORDER_ | Win32.SWP_NOACTIVATE_ | Win32.SWP_NOOWNERZORDER);
         }
         Win32.EndDeferWindowPos(info);
-        foreach (var d in _dead) { _logical.Remove(d); _parked?.Remove(d); }
+        foreach (var d in _dead) { _logical.Remove(d); _parked?.Remove(d); _tiledWindows?.Remove(d); }
         _dead.Clear();
         RenderDesktopIcons();
         if (_canvasMode) ComposeFull();
@@ -94,6 +95,7 @@ public sealed partial class CanvasController
             return;
         }
         // Commit only a complete layout; never leave windows below the reachable canvas.
+        _tiledWindows?.Clear();
         for (int i = 0; i < items.Count; i++)
             _logical[items[i].Hwnd] = (positions[i].X, positions[i].Y);
         _panX = _w; _panY = _h;                     // look at canvas top-left
@@ -114,13 +116,17 @@ public sealed partial class CanvasController
         }
         // Check capacity before changing either the camera, window sizes or window states.
         ReturnToNative();
+        var content = new Rectangle(ScreenTileLayout.Margin, ScreenTileLayout.Margin,
+            tiles[0].Width, tiles[0].Height);
         int constrained = 0, failed = 0;
         for (int i = 0; i < windows.Length; i++)
         {
-            if (!WindowTiling.TryFit(windows[i], new Size(_w, _h), ScreenTileLayout.Margin,
+            if (!WindowTiling.TryFit(windows[i], content,
                 out var offset, out bool limited)) { failed++; continue; }
             _logical[windows[i]] = (tiles[i].X - ScreenTileLayout.Margin + offset.X,
                 tiles[i].Y - ScreenTileLayout.Margin + offset.Y);
+            if (Win32.GetWindowRect(windows[i], out var rect))
+                (_tiledWindows ??= new())[windows[i]] = (offset, new Size(rect.Right - rect.Left, rect.Bottom - rect.Top));
             if (limited) constrained++;
         }
         _panX = _w; _panY = _h; // Center the first screen cell in the viewport.
@@ -145,6 +151,7 @@ public sealed partial class CanvasController
             any = true;
         }
         if (!any) return;
+        _tiledWindows?.Clear();
         int dx = (_w - (maxX - minX)) / 2 - minX;
         int dy = (_h - (maxY - minY)) / 2 - minY;
         foreach (var k in _logical.Keys.ToArray())
@@ -184,6 +191,16 @@ public sealed partial class CanvasController
     {
         if (!_logical.TryGetValue(hwnd, out var l) || Win32.IsIconic(hwnd) ||
             !Win32.GetWindowRect(hwnd, out var r) || r.Right <= r.Left || r.Bottom <= r.Top) return false;
+        // Keep the taskbar reservation when following a tiled window from the map or taskbar.
+        if (_tiledWindows?.TryGetValue(hwnd, out var tile) == true)
+        {
+            if (tile.Size == new Size(r.Right - r.Left, r.Bottom - r.Top))
+            {
+                PanTo(tile.Offset.X - l.X, tile.Offset.Y - l.Y);
+                return true;
+            }
+            _tiledWindows.Remove(hwnd); // A manual resize returns to ordinary window centering.
+        }
         float cx = l.X + (r.Right - r.Left) / 2f, cy = l.Y + (r.Bottom - r.Top) / 2f;
         PanTo(_w / 2f - cx, _h / 2f - cy);
         return true;
