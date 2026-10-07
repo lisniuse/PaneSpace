@@ -66,6 +66,9 @@ public static class Win32
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT placement);
+    [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, in WINDOWPLACEMENT placement);
     [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
@@ -113,6 +116,7 @@ public static class Win32
     [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
     public const int GW_OWNER = 4;
     public const uint SWP_NOSIZE_ = 0x0001, SWP_NOZORDER_ = 0x0004, SWP_NOACTIVATE_ = 0x0010, SWP_NOOWNERZORDER = 0x0200;
+    public const uint SWP_ASYNCWINDOWPOS = 0x4000, WPF_ASYNCWINDOWPLACEMENT = 0x0004;
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
     public static readonly IntPtr DPI_PER_MONITOR_V2 = new(-4);
 
@@ -120,6 +124,14 @@ public static class Win32
 
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPLACEMENT
+    {
+        public uint Length, Flags, ShowCmd;
+        public POINT MinPosition, MaxPosition;
+        public RECT NormalPosition;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct WNDCLASSEX

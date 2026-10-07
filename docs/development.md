@@ -54,6 +54,9 @@ pwsh -NoProfile -File scripts/publish.ps1 -SkipTests
 覆盖矮窗口下方补位、宽窗口跨列、尺寸保持、间距、精确边界、空间不足时整体拒绝，
 以及 1000 组固定种子的随机布局。测试直接引用 `PaneSpace.Core`。
 
+同一入口还执行 `tests/Desktop` 的 Windows 原生检查，只创建、移动和销毁独立测试
+窗口，覆盖屏幕外/部分出屏窗口、最小化后的还原位置、最大化状态、超大窗口和已销毁句柄。
+
 修改 Win32 输入、绘制或生命周期时，还应验证真实桌面行为，包括 Ctrl 门控、
 小地图点击、任务栏唤起、最小化恢复以及退出归位。
 
@@ -62,4 +65,5 @@ pwsh -NoProfile -File scripts/publish.ps1 -SkipTests
 - 存档：`%LOCALAPPDATA%/PaneSpace/state.json`，首次启动兼容旧 CamCanvas 存档。
 - 当前小地图诊断日志：`%TEMP%/camcanvas-map.log`，名称暂时保留供已有诊断流程使用。
 - 旧存档不会删除；新保存使用 PaneSpace 路径，JSON 字段保持兼容。
-- 强制结束进程不会执行退出归位；日常退出仍建议使用托盘菜单。
+- 正常退出先保存画布，再将受管理窗口收回可见工作区；托盘菜单为“退出 PaneSpace（收回窗口）”。
+- 强制结束进程不会执行退出收回；日常退出仍建议使用托盘菜单。

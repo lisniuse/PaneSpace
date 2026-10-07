@@ -23,5 +23,14 @@ internal static class Program
             _cam.Dispose();   // windows go back home before we die
             base.ExitThreadCore();
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            try
+            {
+                if (disposing) _cam.Dispose();
+            }
+            finally { base.Dispose(disposing); }
+        }
     }
 }

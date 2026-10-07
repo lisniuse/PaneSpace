@@ -28,6 +28,8 @@ implemented yet.
   allowing wide windows to span columns without resizing them.
 - **Layout persistence:** remember the camera and window positions across sessions.
 - **Tray controls:** reset the camera or exit from the PaneSpace tray icon.
+- **Safe exit:** save the canvas layout, then return its windows to visible screen
+  work areas. Minimized windows stay minimized and receive reachable restore positions.
 
 ## Build and run
 
@@ -61,7 +63,7 @@ publishing entry point. Build output is excluded from this repository.
 | 自动排列(全画布) | Arrange visible, non-minimized windows across the canvas |
 | 全部搬回中心屏 | Move the window group back to the center screen |
 | Esc / 复位 | Reset the camera offset to zero |
-| Tray → Exit | Save the layout and reset the camera before quitting |
+| Tray → Exit | Save the canvas layout and bring its windows back onto the screens |
 
 The current toolbar and tray menus use Chinese labels. If an arrangement cannot
 fit all eligible windows, PaneSpace keeps the existing layout and shows a notice.
@@ -76,6 +78,8 @@ pwsh -NoProfile -File scripts/test.ps1
 The tests reference the actual Core library and cover shortest-column placement,
 wide windows, bounds, insufficient space, and 1,000 deterministic random layouts.
 The test runner is an executable; use `scripts/test.ps1` rather than `dotnet test`.
+Native desktop checks also create isolated test windows to verify exit recovery,
+including minimized, maximized, partially off-screen, and oversized windows.
 
 ```text
 PaneSpace/
@@ -88,7 +92,7 @@ PaneSpace/
 ├─ src/
 │  ├─ Core/               Layout algorithm and session models
 │  └─ Desktop/            WinForms app, Win32 integration, rendering, persistence
-├─ tests/Core/            Executable layout regression checks
+├─ tests/                 Core layout checks and native desktop recovery checks
 ├─ tools/Branding/        Optional SVG → ICO generation tool
 └─ dist/                  Local publish output (ignored)
 ```
@@ -127,6 +131,8 @@ subsequent saves use the new location. The old file is preserved.
 - Maximized windows may behave awkwardly when moved. Some applications suspend
   drawing when their windows are completely off-screen.
 - Hidden and minimized windows do not participate in automatic arrangement.
+- Exit recovery keeps window sizes. For a window larger than the screen work area,
+  its top-left corner and title bar are brought back into view.
 
 Bug reports are welcome through [GitHub Issues](https://github.com/lisniuse/PaneSpace/issues).
 Include your display scaling, window state, and steps to reproduce the behavior.

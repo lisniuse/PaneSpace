@@ -41,6 +41,7 @@ public sealed partial class CanvasController : IDisposable
     private WinForms.Timer? _pollTimer;
     private WinForms.Timer? _saveTimer;
     private bool _canvasMode, _dragging, _lastCtrl;
+    private bool _disposed;
     private bool _lastLeftButton;
     private long _taskbarClickUntil, _focusNotBefore, _focusExpires;
     private IntPtr _pendingTaskbarFocus;
@@ -91,7 +92,7 @@ public sealed partial class CanvasController : IDisposable
         var home = new WinForms.ToolStripMenuItem("画布归位 (Esc)");
         home.Click += (_, _) => ResetPan();
         menu.Items.Add(home);
-        var quit = new WinForms.ToolStripMenuItem("退出 PaneSpace");
+        var quit = new WinForms.ToolStripMenuItem("退出 PaneSpace（收回窗口）");
         quit.Click += (_, _) => WinForms.Application.Exit();
         menu.Items.Add(quit);
         _tray.ContextMenuStrip = menu;
@@ -99,11 +100,14 @@ public sealed partial class CanvasController : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         SaveSession();
         _saveTimer?.Dispose();
         _pollTimer?.Dispose();
         _events?.Dispose();
-        ResetPan();
+        // Keep the saved canvas layout, but leave the live windows reachable after exit.
+        WindowRecovery.ReturnToScreens(_logical.Keys.ToArray());
         if (_layer != IntPtr.Zero) Win32.DestroyWindow(_layer);
         _frame?.Dispose();                           // release wrapper before its native pixels
         if (_memDc != IntPtr.Zero) { Win32.SelectObject(_memDc, _oldBmp); Win32.DeleteObject(_hbm); Win32.DeleteDC(_memDc); Win32.ReleaseDC(IntPtr.Zero, _screenDc); }

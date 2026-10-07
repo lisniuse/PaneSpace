@@ -11,6 +11,7 @@ PaneSpace 分成一个纯逻辑库、一个 Windows 桌面应用和一个轻量�
 | `src/Core/PaneSpace.Core.csproj` | 布局算法、可序列化的会话模型 | .NET 基础库；无 HWND、WinForms 和文件读写 |
 | `src/Desktop/PaneSpace.csproj` | Windows 窗口操作、输入、绘制、托盘和存档 | Core、WinForms、Win32 |
 | `tests/Core/PaneSpace.Core.Tests.csproj` | 测试实际编译的布局算法 | Core |
+| `tests/Desktop/PaneSpace.Desktop.Tests.csproj` | 用独立原生窗口验证退出收回行为 | Desktop、Win32 |
 
 Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不依赖 GDI+ 绘图。
 测试不再通过链接源码重复编译算法，避免应用与测试引用不同实现。
@@ -33,6 +34,12 @@ Core 使用 `System.Drawing` 的 `Size`、`Point`、`Rectangle` 值类型，不�
 改变事件时序。`Platform/Windows` 封装平台接口；`Persistence` 负责 JSON 存档；
 `Rendering/GrabCursorFactory.cs` 负责光标生成；`Rendering/BrandIcon.cs` 加载嵌入的品牌
 图标，供托盘使用。托盘与程序文件图标共用 `assets/branding/icon.ico`。
+
+正常退出时先保存画布状态，再通过 `Platform/Windows/WindowRecovery.cs` 将受管理的
+窗口收回最近显示器的工作区。不会把收回后的屏幕坐标写入画布存档；下次启动仍恢复
+原有画布布局。最小化窗口通过 `WINDOWPLACEMENT` 修正还原坐标，保留最小化及
+还原到最大化的标志。普通窗口保持尺寸、层级和焦点；超大窗口确保左上角可见。
+退出处理可重复调用；消息循环结束后的 `ApplicationContext.Dispose` 也执行相同收尾。
 
 ## 坐标与排列
 
