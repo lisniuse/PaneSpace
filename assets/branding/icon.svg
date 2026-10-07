@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="title desc">
+  <title id="title">PaneSpace icon</title>
+  <desc id="desc">Overlapping blue window panes inside a canvas viewfinder.</desc>
+  <defs>
+    <linearGradient id="pane" x1="17" y1="16" x2="49" y2="39" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#0b1220"/>
+  <path d="M8 19v-7a4 4 0 0 1 4-4h7M45 8h7a4 4 0 0 1 4 4v7M56 45v7a4 4 0 0 1-4 4h-7M19 56h-7a4 4 0 0 1-4-4v-7" fill="none" stroke="#647b9f" stroke-width="2" stroke-linecap="round"/>
+  <rect x="17" y="16" width="32" height="23" rx="5" fill="url(#pane)"/>
+  <path d="M23 22h7" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+  <rect x="12" y="33" width="21" height="18" rx="5" fill="#7dd3fc" stroke="#0b1220" stroke-width="3"/>
+  <rect x="30" y="30" width="22" height="20" rx="5" fill="#e0f2fe" stroke="#0b1220" stroke-width="3"/>
+  <path d="M36 36h7" stroke="#0284c7" stroke-width="2" stroke-linecap="round"/>
+</svg>

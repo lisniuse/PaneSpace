@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ApplicationManifest>Properties/app.manifest</ApplicationManifest>
+    <ApplicationIcon>../../assets/branding/icon.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>PaneSpace 窗域</Product>
+    <Description>将应用窗口放入可平移、可排列的桌面画布。</Description>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Core/PaneSpace.Core.csproj" />
+    <EmbeddedResource Include="../../assets/branding/icon.ico" LogicalName="PaneSpace.Branding.Icon.ico" />
+  </ItemGroup>
+
+</Project>

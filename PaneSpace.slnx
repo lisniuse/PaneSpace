@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Core/PaneSpace.Core.csproj" />
+    <Project Path="src/Desktop/PaneSpace.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Core/PaneSpace.Core.Tests.csproj" />
+  </Folder>
+</Solution>

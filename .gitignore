@@ -1,0 +1,33 @@
+# Build and publish output
+**/bin/
+**/obj/
+/dist/
+/artifacts/
+
+# Optional branding tool dependencies
+**/node_modules/
+
+# Local environment and authentication
+.env
+.env.*
+!.env.example
+*.local
+
+# OS/editor scratch files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
+
+# Local IDE/user state
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Diagnostics
+*.log
+TestResults/
